@@ -155,10 +155,9 @@
         const m = Math.hypot(dx, dy) || 1;
         this.x = U.clamp(this.x + dx / m * this.speed * dt, 24, W - 40);
         this.y = U.clamp(this.y + dy / m * this.speed * dt, 22, GROUND - 14);
-      } else if (I.touch.active) { // touch: follow finger target (with offset set by UI)
-        const sp = this.speed * dt * 1.4;
-        this.x = U.clamp(U.approach(this.x, I.touch.tx, sp), 24, W - 40);
-        this.y = U.clamp(U.approach(this.y, I.touch.ty, sp), 22, GROUND - 14);
+      } else if (I.touch.active && (I.touch.vx || I.touch.vy)) { // floating virtual stick (analog)
+        this.x = U.clamp(this.x + I.touch.vx * this.speed * dt, 24, W - 40);
+        this.y = U.clamp(this.y + I.touch.vy * this.speed * dt, 22, GROUND - 14);
       }
       this.vx = (this.x - ox) / dt; this.vy = (this.y - oy) / dt;
       this.bank = U.approach(this.bank, U.clamp(this.vy / 200, -1, 1), dt * 6);

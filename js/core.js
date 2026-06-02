@@ -33,7 +33,9 @@
     keys: Object.create(null),
     pressed: Object.create(null),     // edge-triggered this frame
     mouse: { x: 0, y: 0, down: false },
-    touch: { active: false, tx: 0, ty: 0 },
+    // Floating virtual stick: active + analog vector (vx,vy ∈ [-1,1]);
+    // ox/oy = base centre, kx/ky = knob centre (world px) for drawing.
+    touch: { active: false, vx: 0, vy: 0, ox: 0, oy: 0, kx: 0, ky: 0 },
     fire: false,
     _startTouch: false,
     power: false,
