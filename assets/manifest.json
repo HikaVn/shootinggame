@@ -1,0 +1,4 @@
+{
+  "_comment": "Sprite manifest. Empty by default → the game uses built-in procedural mech-SF art. Run `npm run gen-assets` (with an OpenAI key) to generate real PNGs; it rewrites this file with entries like \"player\": \"player.png\" and the game auto-loads them.",
+  "sprites": {}
+}
