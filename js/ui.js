@@ -7,7 +7,7 @@
   const W = AV.W, H = AV.H;
 
   const UI = AV.UI = {
-    game: null, isTouch: false, t: 0,
+    game: null, isTouch: false, t: 0, STICK_R: 70,
 
     init(game) {
       this.game = game;
@@ -34,19 +34,33 @@
         const pd = (e) => { e.preventDefault(); I._powerPulse = true; AV.Audio.resume(); };
         powBtn.addEventListener('touchstart', pd); powBtn.addEventListener('mousedown', pd);
       }
+      // Floating virtual stick: the first touch anywhere on the canvas drops a
+      // semi-transparent stick at that point; dragging from it steers the ship.
+      const setStick = (cx, cy) => {
+        const w = this._toWorld(canvas, cx, cy);
+        let dx = w.x - I.touch.ox, dy = w.y - I.touch.oy;
+        const len = Math.hypot(dx, dy);
+        if (len > UI.STICK_R) { const s = UI.STICK_R / len; dx *= s; dy *= s; }
+        I.touch.kx = I.touch.ox + dx; I.touch.ky = I.touch.oy + dy;
+        const dead = 6;
+        I.touch.vx = len < dead ? 0 : dx / UI.STICK_R;
+        I.touch.vy = len < dead ? 0 : dy / UI.STICK_R;
+      };
       const onStart = (e) => {
         AV.Audio.resume(); I._startTouch = true;
         for (const t of e.changedTouches) {
-          const w = this._toWorld(canvas, t.clientX, t.clientY);
-          if (moveId === null) { moveId = t.identifier; I.touch.active = true; I.touch.tx = w.x; I.touch.ty = w.y - 36; }
+          if (moveId === null) {
+            moveId = t.identifier; const w = this._toWorld(canvas, t.clientX, t.clientY);
+            I.touch.active = true; I.touch.ox = w.x; I.touch.oy = w.y; I.touch.kx = w.x; I.touch.ky = w.y; I.touch.vx = 0; I.touch.vy = 0;
+          }
         }
       };
       const onMove = (e) => {
         e.preventDefault();
-        for (const t of e.touches) if (t.identifier === moveId) { const w = this._toWorld(canvas, t.clientX, t.clientY); I.touch.tx = w.x; I.touch.ty = w.y - 36; }
+        for (const t of e.touches) if (t.identifier === moveId) setStick(t.clientX, t.clientY);
       };
       const onEnd = (e) => {
-        for (const t of e.changedTouches) if (t.identifier === moveId) { moveId = null; I.touch.active = false; }
+        for (const t of e.changedTouches) if (t.identifier === moveId) { moveId = null; I.touch.active = false; I.touch.vx = 0; I.touch.vy = 0; }
       };
       canvas.addEventListener('touchstart', onStart, { passive: false });
       canvas.addEventListener('touchmove', onMove, { passive: false });
@@ -77,6 +91,27 @@
 
       // boss HP
       if (g.boss && g.boss.alive && !g.boss.entering) this._bossBar(ctx, g.boss);
+      // floating virtual stick
+      if (AV.Input.touch.active) this._stick(ctx);
+      ctx.restore();
+    },
+
+    _stick(ctx) {
+      const t = AV.Input.touch, R = this.STICK_R;
+      ctx.save();
+      // base ring
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.beginPath(); ctx.arc(t.ox, t.oy, R, 0, U.TAU);
+      ctx.fillStyle = 'rgba(120,180,255,0.10)'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(150,200,255,0.35)'; ctx.stroke();
+      // direction guide
+      ctx.beginPath(); ctx.arc(t.ox, t.oy, R * 0.5, 0, U.TAU);
+      ctx.strokeStyle = 'rgba(150,200,255,0.18)'; ctx.lineWidth = 1; ctx.stroke();
+      // knob
+      const g = ctx.createRadialGradient(t.kx, t.ky, 2, t.kx, t.ky, 30);
+      g.addColorStop(0, 'rgba(200,230,255,0.55)'); g.addColorStop(0.7, 'rgba(90,160,255,0.40)'); g.addColorStop(1, 'rgba(40,90,200,0.10)');
+      ctx.beginPath(); ctx.arc(t.kx, t.ky, 30, 0, U.TAU); ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(190,225,255,0.6)'; ctx.stroke();
       ctx.restore();
     },
 
@@ -150,7 +185,7 @@
 
       ctx.font = '14px Orbitron, monospace'; ctx.fillStyle = '#9fd';
       const ctrls = this.isTouch
-        ? ['DRAG  move', 'FIRE  shoot', 'POWER  activate capsule upgrade']
+        ? ['TOUCH & DRAG anywhere — virtual stick', 'FIRE  shoot', 'POWER  activate capsule upgrade']
         : ['ARROWS / WASD  move', 'Z / SPACE  fire', 'X / SHIFT  activate power-up', 'ESC  pause'];
       ctrls.forEach((c, i) => ctx.fillText(c, W / 2, 388 + i * 22));
 
