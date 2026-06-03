@@ -46,6 +46,7 @@
       this.clock = 0; this.evIdx = 0; this.bossActive = false; this.boss = null;
       this.enemies.length = 0; this.capsules.length = 0; this.pressers.length = 0;
       Bullets.clear(); FX.clear(); FX.resetTimers();
+      this.banners.length = 0; this.flashes.length = 0;
       this.bg = new AV.Background(st.id);
       if (!this.player) this.player = new AV.Player();
       this.player.reset(false); this.player.alive = true; this.player.inv = 2;
@@ -104,7 +105,7 @@
         FX.update(dt);
         this.clearT -= dt;
         if (this.clearT <= 0) {
-          if (this.stageIdx >= this.stages.length - 1) { this.state = 'win'; this.banner('MISSION COMPLETE', '#7ef', 99); Audio.playBGM('title'); }
+          if (this.stageIdx >= this.stages.length - 1) { this.state = 'win'; Audio.playBGM('title'); }
           else this.startStage(this.stageIdx + 1);
         }
         return;
@@ -130,7 +131,7 @@
         this.respawnT -= dt;
         FX.update(dt); Bullets.update(dt); this._updateActors(dt);
         if (this.respawnT <= 0) {
-          if (this.lives < 0) { this.state = 'gameover'; this.banner('GAME OVER', '#f55', 99); Audio.stopBGM(); Audio.sfx('death'); }
+          if (this.lives < 0) { this.state = 'gameover'; this.banners.length = 0; Audio.stopBGM(); Audio.sfx('death'); }
           else { this.player.reset(false); this.player.alive = true; this.player.inv = 2.2; this.lastHazard = null; }
         }
         return;
