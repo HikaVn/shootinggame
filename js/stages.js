@@ -11,16 +11,31 @@
    * Backgrounds : layered parallax, pure landscape
    * ----------------------------------------------------------------- */
   class Background {
-    constructor(stage) { this.stage = stage; this.t = 0; this.stars = []; this._initStars(); }
+    constructor(stage) { this.stage = stage; this.t = 0; this.stars = []; this._initStars(); this.scrollSpeed = 34 + stage * 6; this._tile = null; this._tileImg = null; }
     _initStars() { for (let i = 0; i < 90; i++) this.stars.push({ x: U.rand(0, W), y: U.rand(0, H), z: U.rand(0.3, 1.5), s: U.rand(0.6, 2) }); }
     update(dt) { this.t += dt; }
     draw(ctx) {
       const imageBg = Art.get('bg_stage' + this.stage);
-      if (imageBg) {
-        ctx.drawImage(imageBg, 0, 0, W, H);
-        return;
-      }
+      if (imageBg) { this._drawScroll(ctx, imageBg); return; }
       (this['_s' + this.stage] || this._s1).call(this, ctx);
+    }
+
+    // Seamless horizontal scroll. The scrolling texture is the image joined to
+    // its own left-right mirror (width 2W): the mirror seam (W) and the loop
+    // wrap (2W→0) both fall on identical pixel columns, so there is no visible
+    // seam as it repeats.
+    _buildTile(img) {
+      const c = document.createElement('canvas'); c.width = W * 2; c.height = H;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0, W, H);                                    // original (left half)
+      x.save(); x.translate(W * 2, 0); x.scale(-1, 1); x.drawImage(img, 0, 0, W, H); x.restore(); // mirror (right half)
+      return c;
+    }
+    _drawScroll(ctx, img) {
+      if (this._tileImg !== img) { this._tile = this._buildTile(img); this._tileImg = img; }
+      const period = W * 2;
+      let off = (this.t * this.scrollSpeed) % period; if (off < 0) off += period;
+      for (let x = -off; x < W; x += period) ctx.drawImage(this._tile, Math.round(x), 0);
     }
 
     _sky(ctx, c1, c2, c3) {
