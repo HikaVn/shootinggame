@@ -25,7 +25,10 @@
         const res = await fetch('assets/manifest.json', { cache: 'no-cache' });
         if (!res.ok) return false;
         const man = await res.json();
-        const entries = Object.entries(man.sprites || {});
+        const entries = [
+          ...Object.entries(man.sprites || {}),
+          ...Object.entries(man.backgrounds || {}),
+        ];
         let loaded = 0;
         await Promise.all(entries.map(([name, file]) => new Promise((resolve) => {
           const img = new Image();

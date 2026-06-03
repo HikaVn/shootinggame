@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-06-03T10:41:38.837Z",
+  "bgmSource": "suno",
+  "note": "BGM files imported from Suno downloads. Stage BGM shorter than 3 minutes is loop-extended during import. Boss BGM keeps its original length by request. SFX files are locally synthesized unless replaced separately.",
+  "bgm": {
+    "title": {
+      "file": "bgm/title.mp3",
+      "loop": false
+    },
+    "stage1": {
+      "file": "bgm/stage1.mp3",
+      "loop": true
+    },
+    "stage2": {
+      "file": "bgm/stage2.mp3",
+      "loop": true
+    },
+    "stage3": {
+      "file": "bgm/stage3.mp3",
+      "loop": true
+    },
+    "boss": {
+      "file": "bgm/boss.mp3",
+      "loop": true
+    }
+  },
+  "sfx": {
+    "shoot": "sfx/shoot.mp3",
+    "laser": "sfx/laser.mp3",
+    "missile": "sfx/missile.mp3",
+    "hit": "sfx/hit.mp3",
+    "bosshit": "sfx/bosshit.mp3",
+    "explode": "sfx/explode.mp3",
+    "bigexplode": "sfx/bigexplode.mp3",
+    "powerup": "sfx/powerup.mp3",
+    "select": "sfx/select.mp3",
+    "levelup": "sfx/levelup.mp3",
+    "shield": "sfx/shield.mp3",
+    "alarm": "sfx/alarm.mp3",
+    "warn": "sfx/warn.mp3",
+    "death": "sfx/death.mp3",
+    "coin": "sfx/coin.mp3",
+    "clear": "sfx/clear.mp3"
+  },
+  "bgmSources": {
+    "title": "suno",
+    "stage1": "suno",
+    "stage2": "suno",
+    "stage3": "suno",
+    "boss": "suno"
+  },
+  "sunoImportedAt": "2026-06-03T10:53:13.189Z",
+  "sunoImportSource": "/Users/hikaru/Downloads/AV BOSS DREAD CORE THREE MIN LOOP (1).mp3"
+}

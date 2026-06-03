@@ -21,6 +21,7 @@
       this.ctx = this.canvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = true;
       Audio.init();
+      await Audio.loadAssets();
       Art.buildProcedural();
       await Art.loadAssets();
       AV.Input.init(this.canvas, W, H);

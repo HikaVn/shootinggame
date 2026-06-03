@@ -78,12 +78,13 @@
   };
 
   /* ----------------------------------------------------------------- *
-   * Web Audio : synthesized SFX + chiptune BGM (no files)
+   * Web Audio : MP3 assets + synthesized fallback
    * ----------------------------------------------------------------- */
   const Audio = AV.Audio = {
     ctx: null, master: null, musicGain: null, sfxGain: null,
     enabled: true, started: false,
     _bgm: null, _bgmTimer: 0, _bgmStep: 0, _track: null,
+    _musicEl: null, _bgmFiles: Object.create(null), _sfxFiles: Object.create(null), _sfxBuffers: Object.create(null),
 
     init() {
       try {
@@ -94,8 +95,39 @@
         this.sfxGain = this.ctx.createGain(); this.sfxGain.gain.value = 0.8; this.sfxGain.connect(this.master);
       } catch (e) { this.enabled = false; }
     },
-    resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); this.started = true; },
-    setMuted(m) { if (this.master) this.master.gain.value = m ? 0 : 0.7; this._muted = m; },
+    async loadAssets() {
+      if (!this.ctx) return false;
+      try {
+        const res = await fetch('assets/audio/manifest.json', { cache: 'no-cache' });
+        if (!res.ok) return false;
+        const man = await res.json();
+        this._bgmFiles = man.bgm || Object.create(null);
+        this._sfxFiles = man.sfx || Object.create(null);
+        const entries = Object.entries(this._sfxFiles);
+        await Promise.all(entries.map(async ([name, file]) => {
+          try {
+            const r = await fetch('assets/audio/' + file, { cache: 'no-cache' });
+            if (!r.ok) return;
+            const data = await r.arrayBuffer();
+            this._sfxBuffers[name] = await this.ctx.decodeAudioData(data);
+          } catch (e) { /* keep synthesized fallback */ }
+        }));
+        console.log('[AV] Loaded audio assets: BGM ' + Object.keys(this._bgmFiles).length + ', SFX ' + Object.keys(this._sfxBuffers).length);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+    resume() {
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      this.started = true;
+      if (this._musicEl && this._musicEl.paused && !this._muted) this._musicEl.play().catch(() => {});
+    },
+    setMuted(m) {
+      if (this.master) this.master.gain.value = m ? 0 : 0.7;
+      if (this._musicEl) this._musicEl.muted = !!m;
+      this._muted = m;
+    },
 
     _env(node, t, a, d, peak, sus) {
       const g = node.gain; g.cancelScheduledValues(t);
@@ -128,6 +160,16 @@
     sfx(name) {
       if (!this.enabled || !this.ctx || this._muted) return;
       const t = this.ctx.currentTime;
+      const buf = this._sfxBuffers[name];
+      if (buf) {
+        const src = this.ctx.createBufferSource();
+        const g = this.ctx.createGain();
+        src.buffer = buf;
+        g.gain.value = 0.9;
+        src.connect(g); g.connect(this.sfxGain);
+        src.start(t);
+        return;
+      }
       switch (name) {
         case 'shoot': this._tone(880, 'square', t, 0.09, 0.18, this.sfxGain, 420); this._noise(t, 0.05, 0.06, this.sfxGain, 2400, 2); break;
         case 'laser': this._tone(1400, 'sawtooth', t, 0.18, 0.16, this.sfxGain, 700); this._tone(700, 'sine', t, 0.18, 0.1, this.sfxGain, 350); break;
@@ -162,6 +204,18 @@
       if (!this.enabled || !this.ctx) return;
       if (this._track === name) return;
       this.stopBGM();
+      const fileCfg = this._bgmFiles[name];
+      if (fileCfg && fileCfg.file) {
+        const el = new global.Audio('assets/audio/' + fileCfg.file);
+        el.loop = !!fileCfg.loop;
+        el.preload = 'auto';
+        el.volume = 0.42;
+        el.muted = !!this._muted;
+        this._musicEl = el;
+        this._track = name;
+        if (this.started && !this._muted) el.play().catch(() => {});
+        return;
+      }
       this._track = name; const tr = this.tracks[name]; if (!tr) return;
       const spb = 60 / tr.bpm / 2; // 8th notes
       this._bgmStep = 0;
@@ -181,7 +235,15 @@
       };
       tick();
     },
-    stopBGM() { if (this._bgm) clearTimeout(this._bgm); this._bgm = null; this._track = null; },
+    stopBGM() {
+      if (this._musicEl) {
+        this._musicEl.pause();
+        this._musicEl.currentTime = 0;
+        this._musicEl = null;
+      }
+      if (this._bgm) clearTimeout(this._bgm);
+      this._bgm = null; this._track = null;
+    },
   };
 
 })(window);

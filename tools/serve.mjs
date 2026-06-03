@@ -23,6 +23,6 @@ export function createServer(root = ROOT) {
 }
 
 // run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
   createServer().listen(PORT, () => console.log(`ASTRAL VANGUARD running → http://localhost:${PORT}`));
 }

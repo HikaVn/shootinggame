@@ -1,7 +1,7 @@
 # ASTRAL VANGUARD — *Iron Requiem*
 
 A high-quality, browser-based **horizontal scrolling shoot-'em-up** in the
-Gradius tradition. Three stages (~2 minutes each) with a unique boss apiece,
+Gradius tradition. Three stages with 3+ minute looped BGM and a unique boss apiece,
 a full power-capsule weapon system, layered particle effects, synthesized
 chiptune audio, and "learn-to-win" first-run-killer gimmicks. Runs entirely in
 the browser — **no build step, no installs, no assets required.**
@@ -78,8 +78,10 @@ Attacks escalate through HP-based phases.
 By default all graphics are **procedurally drawn** (metallic gradients,
 additive-blend glow, multi-layer explosions with flash + fireball + debris +
 smoke + shockwave rings, engine-flame pulse, banking after-images, muzzle
-flashes). Audio (BGM + SFX) is **synthesized live with the Web Audio API** —
-no media files anywhere.
+flashes). Image and audio files can override that procedural layer: PNG art is
+listed in `assets/manifest.json`, and MP3 BGM/SFX are listed in
+`assets/audio/manifest.json`. If an audio file is missing, the Web Audio
+synthesized fallback is still available.
 
 ### Optional: real AI-generated mech-SF sprites
 The art is built behind a swap layer. To use real generated images instead:
@@ -138,6 +140,8 @@ js/ui.js            HUD · power meter · boss HP bar · title · touch controls
 js/main.js          state machine · fixed-step loop · collisions · lives/continue
 tools/serve.mjs     tiny static server (start.command / tests)
 tools/gen_assets.mjs optional OpenAI image → chroma-key → assets/ pipeline
+tools/gen_audio_assets.mjs local MP3 placeholder BGM/SFX generator
+tools/import_suno_bgm.mjs Suno MP3 normalizer/importer for bgm/*.mp3
 tools/make_gif.mjs  captures shots/gameplay.gif
 tests/smoke.mjs     Playwright verification + boss hitbox probe
 ```

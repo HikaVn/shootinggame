@@ -6,7 +6,11 @@
   "scripts": {
     "serve": "node tools/serve.mjs",
     "test": "node tests/smoke.mjs",
-    "gen-assets": "node tools/gen_assets.mjs"
+    "gen-assets": "node tools/gen_assets.mjs",
+    "gen-audio": "node tools/gen_audio_assets.mjs",
+    "import-suno-bgm": "node tools/import_suno_bgm.mjs",
+    "verify-audio": "node tools/verify_audio_assets.mjs",
+    "verify-suno-audio": "node tools/verify_audio_assets.mjs --require-suno"
   },
   "devDependencies": {
     "playwright": "^1.48.0"
