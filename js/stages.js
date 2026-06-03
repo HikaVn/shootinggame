@@ -14,7 +14,14 @@
     constructor(stage) { this.stage = stage; this.t = 0; this.stars = []; this._initStars(); }
     _initStars() { for (let i = 0; i < 90; i++) this.stars.push({ x: U.rand(0, W), y: U.rand(0, H), z: U.rand(0.3, 1.5), s: U.rand(0.6, 2) }); }
     update(dt) { this.t += dt; }
-    draw(ctx) { (this['_s' + this.stage] || this._s1).call(this, ctx); }
+    draw(ctx) {
+      const imageBg = Art.get('bg_stage' + this.stage);
+      if (imageBg) {
+        ctx.drawImage(imageBg, 0, 0, W, H);
+        return;
+      }
+      (this['_s' + this.stage] || this._s1).call(this, ctx);
+    }
 
     _sky(ctx, c1, c2, c3) {
       const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, c1); g.addColorStop(0.6, c2); g.addColorStop(1, c3);

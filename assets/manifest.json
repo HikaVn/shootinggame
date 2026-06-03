@@ -1,4 +1,27 @@
 {
-  "_comment": "Sprite manifest. Empty by default → the game uses built-in procedural mech-SF art. Run `npm run gen-assets` (with an OpenAI key) to generate real PNGs; it rewrites this file with entries like \"player\": \"player.png\" and the game auto-loads them.",
-  "sprites": {}
+  "_comment": "Imagegen assets. The game loads these PNGs first and falls back to procedural canvas art only if a file is missing.",
+  "generatedAt": "2026-06-03T00:00:00.000Z",
+  "source": "_source/imagegen-sprite-sheet.png",
+  "backgrounds": {
+    "bg_stage1": "bg_stage1.png",
+    "bg_stage2": "bg_stage2.png",
+    "bg_stage3": "bg_stage3.png"
+  },
+  "sprites": {
+    "player": "player.png",
+    "option": "option.png",
+    "scout": "scout.png",
+    "fighter": "fighter.png",
+    "hunter": "hunter.png",
+    "turret": "turret.png",
+    "dropper": "dropper.png",
+    "mine": "mine.png",
+    "debris": "debris.png",
+    "capsule": "capsule.png",
+    "capsuleFake": "capsuleFake.png",
+    "bossCore": "bossCore.png",
+    "bossPanel": "bossPanel.png",
+    "bossTurret": "bossTurret.png",
+    "presser": "presser.png"
+  }
 }

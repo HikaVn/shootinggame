@@ -19,11 +19,18 @@ async function shot(page, file) {
 // @sparticuz/chromium bundle when the Playwright CDN is unreachable.
 async function resolveLaunch() {
   try {
+    if (process.platform === 'darwin') throw new Error('Prefer installed desktop Chrome on macOS');
     const sc = (await import('@sparticuz/chromium')).default;
     const executablePath = await sc.executablePath();
     const args = sc.args.filter((a) => !a.includes('single-process'));
     return { executablePath, args, headless: true };
   } catch (e) {
+    for (const executablePath of [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    ]) {
+      if (fs.existsSync(executablePath)) return { executablePath, headless: true, args: ['--use-gl=swiftshader', '--no-sandbox'] };
+    }
     return { headless: true, args: ['--use-gl=swiftshader'] };
   }
 }
