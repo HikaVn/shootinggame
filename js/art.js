@@ -60,6 +60,7 @@
       this._enemy('fighter', '#9bf', '#246', 1.25);
       this._enemy('hunter', '#fb8', '#722', 1.1);
       this._enemy('turret', '#bbc', '#445', 1.0);
+      this._crawler();
       this._dropper();
       this._presser();
       this._mine();
@@ -129,6 +130,27 @@
       this._panelLines(x, [[20, 14], [40, 16], [40, 24], [20, 26]], '#0008');
       c.core = { x: 14 * scale, y: 20 * scale };
       this.sprites[name] = c;
+    },
+
+    _crawler() {
+      // Treaded walker that hugs the floor (sprite "stands" on its treads at the
+      // bottom; the engine flips it vertically for the ceiling variant).
+      const c = mk(46, 30), x = c.getContext('2d');
+      // treads / track base
+      x.fillStyle = '#161b26'; x.beginPath(); x.moveTo(3, 21); x.lineTo(43, 21); x.lineTo(40, 29); x.lineTo(6, 29); x.closePath(); x.fill();
+      x.fillStyle = '#3a4658'; for (let i = 6; i < 40; i += 7) x.fillRect(i, 22, 4, 6);
+      // hull
+      const g = this._metal(x, 0, 6, 0, 16, '#48535f', '#b9c4d2', '#6c7886');
+      x.fillStyle = g; x.beginPath(); x.moveTo(7, 21); x.lineTo(13, 9); x.lineTo(33, 9); x.lineTo(39, 21); x.closePath(); x.fill();
+      // turret dome
+      const dg = x.createRadialGradient(23, 11, 2, 23, 11, 12); dg.addColorStop(0, '#d6e0ee'); dg.addColorStop(1, '#39424f');
+      x.fillStyle = dg; x.beginPath(); x.arc(23, 12, 8, Math.PI, 0); x.fill();
+      // barrel + red eye
+      x.fillStyle = '#1c2230'; x.fillRect(21, 0, 4, 8);
+      const eg = x.createRadialGradient(23, 12, 0, 23, 12, 4); eg.addColorStop(0, '#fff'); eg.addColorStop(0.4, '#f44'); eg.addColorStop(1, '#600');
+      x.fillStyle = eg; x.beginPath(); x.arc(23, 12, 3.2, 0, U.TAU); x.fill();
+      this._panelLines(x, [[12, 14], [34, 14], [33, 19], [13, 19]], '#0007');
+      this.sprites.crawler = c;
     },
 
     _dropper() {
