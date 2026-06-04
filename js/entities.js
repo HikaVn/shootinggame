@@ -119,20 +119,31 @@
     applyPower(game) {
       if (this.cursor < 0) return;
       const slot = SLOTS[this.cursor];
-      let ok = true;
+      // If the highlighted upgrade is already at its limit / already owned,
+      // do nothing AND keep the selection (don't consume the power).
+      const available = (
+        slot === 'SPEED' ? this.speedLvl < 4 :
+        slot === 'MISSILE' ? !this.hasMissile :
+        slot === 'DOUBLE' ? this.weapon !== 'double' :
+        slot === 'SPREAD' ? this.weapon !== 'spread' :
+        slot === 'LASER' ? this.weapon !== 'laser' :
+        slot === 'OPTION' ? this.options.length < 3 :
+        slot === 'SHIELD' ? this.shield < 16 : true
+      );
+      if (!available) { Audio.sfx('select'); if (game) game.flash(slot + ' MAX', '#fd5'); return; }
+
       switch (slot) {
-        case 'SPEED': if (this.speedLvl < 4) this.speedLvl++; else ok = false; break;
+        case 'SPEED': this.speedLvl++; break;
         case 'MISSILE': this.hasMissile = true; break;
         case 'DOUBLE': this.weapon = 'double'; break;
         case 'SPREAD': this.weapon = 'spread'; break;
         case 'LASER': this.weapon = 'laser'; break;
-        case 'OPTION': if (this.options.length < 3) this.options.push({ x: this.x, y: this.y }); else ok = false; break;
+        case 'OPTION': this.options.push({ x: this.x, y: this.y }); break;
         case 'SHIELD': this.shield = 16; this.shieldMax = 16; break;
       }
-      if (ok) { Audio.sfx('levelup'); FX.ring(this.x, this.y, '#7ef', 60, 4); }
-      else Audio.sfx('select');
+      Audio.sfx('levelup'); FX.ring(this.x, this.y, '#7ef', 60, 4);
       this.cursor = -1;
-      if (game) game.flash(slot + (ok ? ' ONLINE' : ' MAX'), '#7ef');
+      if (game) game.flash(slot + ' ONLINE', '#7ef');
     }
 
     hit(game) {
@@ -269,7 +280,9 @@
       this.type = type; this.x = x; this.y = y; this.t = 0; this.alive = true;
       this.fireT = U.rand(0.5, 1.5); this.idle = U.rand(0, U.TAU); this.hitFlash = 0;
       Object.assign(this, this._defaults(type), opt || {});
-      this.maxhp = this.hp; this.y0 = y;
+      // Terrain crawlers lock onto the floor (or ceiling if opt.ceiling) regardless of passed y.
+      if (this.crawl) { this.y = this.ceiling ? (this.h / 2 + 6) : (GROUND - this.h / 2); }
+      this.maxhp = this.hp; this.y0 = this.y;
     }
     _defaults(type) {
       switch (type) {
@@ -279,6 +292,7 @@
         case 'turret': return { hp: 6, w: 40, h: 40, sprite: 'turret', vx: 0, score: 200, dropChance: 0.25, shoots: true, ground: true };
         case 'dropper': return { hp: 5, w: 40, h: 44, sprite: 'dropper', vx: -70, score: 220, dropChance: 0.3, drops: true };
         case 'mine': return { hp: 1, w: 24, h: 24, sprite: 'mine', vx: -60, score: 50, dropChance: 0 };
+        case 'crawler': return { hp: 4, w: 44, h: 26, sprite: 'crawler', vx: -130, score: 200, dropChance: 0.24, shoots: true, crawl: true };
         default: return { hp: 2, w: 40, h: 32, sprite: 'scout', vx: -150, score: 100, dropChance: 0.15 };
       }
     }
@@ -311,6 +325,7 @@
         case 'turret': this.y = this.y0 + Math.sin(this.idle) * 1.5; break;
         case 'dropper': this.x += this.vx * dt; this.y = this.y0 + Math.sin(this.t * 1.5) * 10; break;
         case 'mine': this.x += this.vx * dt; this.y += Math.sin(this.t * 4) * 20 * dt; break;
+        case 'crawler': this.x += this.vx * dt; this.y = this.y0 + Math.sin(this.t * 10) * 1.2; break; // tread along the surface
       }
 
       // shooting
@@ -335,8 +350,9 @@
 
     draw(ctx) {
       const spr = Art.get(this.sprite); if (!spr) return;
-      const bob = this.type === 'turret' ? 0 : Math.sin(this.idle * 2) * 1.5;
+      const bob = (this.type === 'turret' || this.type === 'crawler') ? 0 : Math.sin(this.idle * 2) * 1.5;
       ctx.save(); ctx.translate(this.x, this.y + bob);
+      if (this.ceiling) ctx.scale(1, -1); // ceiling crawler hangs inverted
       ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       if (this.hitFlash > 0) {
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.hitFlash / 0.08;

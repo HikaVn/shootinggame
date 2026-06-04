@@ -168,6 +168,8 @@
    * ----------------------------------------------------------------- */
   function row(game, type, n, y, sx, gap, opt) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, (sx || W + 30) + i * (gap || 70), y, opt)); }
   function wave(game, type, n, yFrom, yTo, opt) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, W + 30 + i * 70, U.lerp(yFrom, yTo, n > 1 ? i / (n - 1) : 0), opt)); }
+  // Terrain crawlers: ceiling=false → floor, ceiling=true → ceiling.
+  function crawlers(game, n, ceiling, gap) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy('crawler', W + 30 + i * (gap || 120), 0, { ceiling: !!ceiling })); }
 
   /* ----------------------------------------------------------------- *
    * Stage timelines
@@ -184,6 +186,7 @@
           { t: 16, fn: (g) => { g.warnIfKnown('debris', 'WARNING : FALLING DEBRIS'); g.addEnemy(new AV.Enemy('debris', 360, -30, { vx: 0, vy: 220, hazardKey: 'debris', sprite: 'debris', hp: 4, w: 40, h: 40, dropChance: 0 })); } },
           { t: 17, fn: (g) => g.addEnemy(new AV.Enemy('debris', 540, -30, { vx: 0, vy: 240, hazardKey: 'debris', sprite: 'debris', hp: 4, w: 40, h: 40, dropChance: 0 })) },
           { t: 20, fn: (g) => row(g, 'turret', 2, AV.H - 40, W, 220) },
+          { t: 22, fn: (g) => crawlers(g, 3, false, 130) },           // floor crawlers
           { t: 24, fn: (g) => wave(g, 'scout', 6, 100, 420) },
           { t: 30, fn: (g) => { g.warnIfKnown('fake', 'WARNING : DECOY CAPSULE'); g.spawnCapsule(W, 300, true); g.spawnCapsule(W, 150); } },
           { t: 36, fn: (g) => row(g, 'fighter', 4, 160, W, 90) },
@@ -192,6 +195,7 @@
           { t: 58, fn: (g) => { g.addPresser(new AV.Presser(W + 60)); } },
           { t: 64, fn: (g) => row(g, 'turret', 3, AV.H - 40, W, 180) },
           { t: 70, fn: (g) => wave(g, 'scout', 8, 80, 440) },
+          { t: 74, fn: (g) => { crawlers(g, 2, false, 150); crawlers(g, 2, true, 150); } }, // floor + ceiling
           { t: 78, fn: (g) => g.spawnCapsule(W, 260) },
           { t: 80, fn: (g) => row(g, 'dropper', 2, 90, W, 200) },
           { t: 88, fn: (g) => wave(g, 'fighter', 5, 140, 380) },
@@ -209,6 +213,7 @@
           { t: 14, fn: (g) => wave(g, 'hunter', 4, 140, 380) },
           { t: 18, fn: (g) => { g.warnIfKnown('press', 'WARNING : CRUSHER GATE'); g.addPresser(new AV.Presser(W + 60)); } },
           { t: 24, fn: (g) => row(g, 'fighter', 4, 160, W, 90) },
+          { t: 28, fn: (g) => { crawlers(g, 2, false, 140); crawlers(g, 2, true, 140); } },
           { t: 30, fn: (g) => { g.warnIfKnown('fake', 'WARNING : DECOY CAPSULE'); g.spawnCapsule(W, 120, true); g.spawnCapsule(W, 400); } },
           { t: 36, fn: (g) => { for (let i = 0; i < 6; i++) g.addEnemy(new AV.Enemy('mine', W + i * 40, 60 + i * 70, {})); } },
           { t: 44, fn: (g) => { g.warnIfKnown('ambush', 'WARNING : REAR ASSAULT'); for (let i = 0; i < 4; i++) g.addEnemy(new AV.Enemy('fighter', -40 - i * 60, g.player.y + U.rand(-80, 80), { vx: 200, hazardKey: 'ambush', shoots: true })); } },
@@ -218,6 +223,7 @@
           { t: 66, fn: (g) => row(g, 'dropper', 3, 90, W, 160) },
           { t: 74, fn: (g) => { for (let i = 0; i < 8; i++) g.addEnemy(new AV.Enemy('mine', W + i * 36, U.rand(70, 450), {})); } },
           { t: 82, fn: (g) => wave(g, 'fighter', 6, 120, 400) },
+          { t: 86, fn: (g) => { crawlers(g, 3, false, 120); crawlers(g, 3, true, 120); } },
           { t: 90, fn: (g) => wave(g, 'hunter', 5, 140, 380) },
           { t: 98, fn: (g) => { g.addPresser(new AV.Presser(W + 60)); g.addPresser(new AV.Presser(W + 260)); } },
           { t: 108, fn: (g) => wave(g, 'hunter', 6, 100, 440) },
@@ -230,6 +236,7 @@
           { t: 2, fn: (g) => wave(g, 'hunter', 5, 100, 420) },
           { t: 6, fn: (g) => g.spawnCapsule(W, 220) },
           { t: 9, fn: (g) => row(g, 'turret', 4, AV.H - 40, W, 140) },
+          { t: 11, fn: (g) => { crawlers(g, 3, false, 120); crawlers(g, 2, true, 150); } },
           { t: 14, fn: (g) => { g.addPresser(new AV.Presser(W + 60)); g.addPresser(new AV.Presser(W + 240)); } },
           { t: 20, fn: (g) => wave(g, 'fighter', 6, 120, 400) },
           { t: 26, fn: (g) => { g.warnIfKnown('debris', 'WARNING : FALLING DEBRIS'); [240, 400, 560, 720].forEach((xx, i) => g.addEnemy(new AV.Enemy('debris', xx, -30 - i * 30, { vx: 0, vy: 260, hazardKey: 'debris', sprite: 'debris', hp: 5, w: 40, h: 40, dropChance: 0 }))); } },
@@ -242,6 +249,7 @@
           { t: 70, fn: (g) => g.spawnCapsule(W, 260) },
           { t: 74, fn: (g) => { [300, 500, 700].forEach((xx) => g.addEnemy(new AV.Enemy('debris', xx, -30, { vx: 0, vy: 280, hazardKey: 'debris', sprite: 'debris', hp: 5, w: 40, h: 40, dropChance: 0 }))); g.addPresser(new AV.Presser(W + 60)); } },
           { t: 82, fn: (g) => wave(g, 'fighter', 7, 110, 420) },
+          { t: 86, fn: (g) => { crawlers(g, 4, false, 110); crawlers(g, 4, true, 110); } },
           { t: 90, fn: (g) => wave(g, 'hunter', 7, 100, 440) },
           { t: 98, fn: (g) => { g.addPresser(new AV.Presser(W + 60)); g.addPresser(new AV.Presser(W + 200)); g.addPresser(new AV.Presser(W + 400)); } },
           { t: 108, fn: (g) => wave(g, 'hunter', 8, 90, 450) },
