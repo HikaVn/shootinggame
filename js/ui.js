@@ -34,6 +34,11 @@
         const pd = (e) => { e.preventDefault(); I._powerPulse = true; AV.Audio.resume(); };
         powBtn.addEventListener('touchstart', pd); powBtn.addEventListener('mousedown', pd);
       }
+      const fullBtn = document.getElementById('btnFull');
+      if (fullBtn) {
+        const tg = (e) => { e.preventDefault(); this.toggleFullscreen(); };
+        fullBtn.addEventListener('touchstart', tg); fullBtn.addEventListener('click', tg);
+      }
       // Floating virtual stick: the first touch anywhere on the canvas drops a
       // semi-transparent stick at that point; dragging from it steers the ship.
       const setStick = (cx, cy) => {
@@ -48,6 +53,10 @@
       };
       const onStart = (e) => {
         AV.Audio.resume(); I._startTouch = true;
+        // Entering play from a menu? use this gesture to go fullscreen so the
+        // bottom power meter isn't clipped by the mobile browser chrome.
+        const st = this.game && this.game.state;
+        if (this.isTouch && (st === 'title' || st === 'gameover' || st === 'continue')) this.goFullscreen();
         for (const t of e.changedTouches) {
           if (moveId === null) {
             moveId = t.identifier; const w = this._toWorld(canvas, t.clientX, t.clientY);
@@ -68,6 +77,20 @@
     },
 
     update() { this.t += 1 / 120; },
+
+    goFullscreen() {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+      if (req && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+        try { const p = req.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+      }
+      try { if (screen.orientation && screen.orientation.lock) { const q = screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } } catch (e) {}
+    },
+    toggleFullscreen() {
+      const fs = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fs) { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex) try { ex.call(document); } catch (e) {} }
+      else this.goFullscreen();
+    },
 
     drawHUD(ctx) {
       const g = this.game;
@@ -137,9 +160,16 @@
 
     _powerMeter(ctx) {
       const g = this.game; const p = g.player; if (!p) return;
-      const slots = AV.SLOTS; const bw = 96, bh = 26, gap = 6;
-      const total = slots.length * (bw + gap) - gap; const x0 = (W - total) / 2, y0 = H - 38;
-      ctx.font = 'bold 12px Orbitron, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const slots = AV.SLOTS;
+      // On touch the action buttons live in the bottom-right corner, so render a
+      // compact, left-anchored meter that stays fully clear of them.
+      const touch = this.isTouch;
+      const SHORT = { SPEED: 'SPD', MISSILE: 'MSL', DOUBLE: 'DBL', SPREAD: 'SPR', LASER: 'LSR', OPTION: 'OPT', SHIELD: 'SHD' };
+      const bw = touch ? 56 : 96, bh = touch ? 20 : 26, gap = touch ? 4 : 6;
+      const total = slots.length * (bw + gap) - gap;
+      const x0 = touch ? 10 : (W - total) / 2;
+      const y0 = H - bh - 10;
+      ctx.font = 'bold ' + (touch ? 11 : 12) + 'px Orbitron, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < slots.length; i++) {
         const x = x0 + i * (bw + gap); const active = i === p.cursor;
         const owned = this._owned(p, slots[i]);
@@ -148,7 +178,8 @@
         ctx.strokeStyle = active ? '#fff' : '#3a5a72'; ctx.lineWidth = active ? 2.5 : 1;
         if (active) { ctx.shadowColor = '#f55'; ctx.shadowBlur = 12; } ctx.strokeRect(x, y0, bw, bh); ctx.shadowBlur = 0;
         ctx.fillStyle = active ? '#fff' : owned ? '#bff' : '#7da';
-        ctx.fillText(slots[i] + (slots[i] === 'SPEED' && p.speedLvl ? ' ' + p.speedLvl : ''), x + bw / 2, y0 + bh / 2 + 1);
+        const label = (touch ? SHORT[slots[i]] : slots[i]) + (slots[i] === 'SPEED' && p.speedLvl ? ' ' + p.speedLvl : '');
+        ctx.fillText(label, x + bw / 2, y0 + bh / 2 + 1);
       }
     },
     _owned(p, slot) {
