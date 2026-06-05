@@ -131,10 +131,11 @@
       this.x = 140; this.y = H / 2; this.w = 44; this.h = 22;
       this.vx = 0; this.vy = 0; this.alive = true; this.bank = 0;
       this.fireT = 0; this.missileT = 0; this.inv = 2.0; // spawn invuln
-      this.history = [];
+      this.trail = [[this.x, this.y]];   // path breadcrumbs for trailing options
       if (full) {
-        this.cursor = -1; this.speedLvl = 0; this.hasMissile = false;
-        this.weapon = 'normal'; this.options = []; this.shield = 0; this.shieldMax = 0;
+        this.cursor = -1; this.speedLvl = 0; this.missileLvl = 0;
+        this.weapon = 'normal'; this.options = []; this.orbit = false; this.orbitA = 0;
+        this.shield = 0; this.shieldMax = 0;
       }
       this.flamePulse = 0;
     }
@@ -149,22 +150,23 @@
       // do nothing AND keep the selection (don't consume the power).
       const available = (
         slot === 'SPEED' ? this.speedLvl < 4 :
-        slot === 'MISSILE' ? !this.hasMissile :
+        slot === 'MISSILE' ? this.missileLvl < 2 :
         slot === 'DOUBLE' ? this.weapon !== 'double' :
         slot === 'SPREAD' ? this.weapon !== 'spread' :
         slot === 'LASER' ? this.weapon !== 'laser' :
-        slot === 'OPTION' ? this.options.length < 3 :
+        slot === 'OPTION' ? (this.options.length < 3 || !this.orbit) :
         slot === 'SHIELD' ? this.shield < 16 : true
       );
       if (!available) { Audio.sfx('select'); if (game) game.flash(slot + ' MAX', '#fd5'); return; }
 
       switch (slot) {
         case 'SPEED': this.speedLvl++; break;
-        case 'MISSILE': this.hasMissile = true; break;
+        case 'MISSILE': this.missileLvl++; break;
         case 'DOUBLE': this.weapon = 'double'; break;
         case 'SPREAD': this.weapon = 'spread'; break;
         case 'LASER': this.weapon = 'laser'; break;
-        case 'OPTION': this.options.push({ x: this.x, y: this.y }); break;
+        // up to 3 trailing options; a 4th OPTION pickup makes them orbit the ship
+        case 'OPTION': if (this.options.length < 3) this.options.push({ x: this.x, y: this.y }); else this.orbit = true; break;
         case 'SHIELD': this.shield = 16; this.shieldMax = 16; break;
       }
       Audio.sfx('levelup'); FX.ring(this.x, this.y, '#7ef', 60, 4);
@@ -199,24 +201,58 @@
       this.vx = (this.x - ox) / dt; this.vy = (this.y - oy) / dt;
       this.bank = U.approach(this.bank, U.clamp(this.vy / 200, -1, 1), dt * 6);
 
-      // history for options
-      this.history.push(this.x, this.y); if (this.history.length > 120) this.history.splice(0, 2);
-      this.options.forEach((o, i) => {
-        const idx = Math.max(0, this.history.length - (i + 1) * 18 * 2);
-        o.x = this.history[idx]; o.y = this.history[idx + 1];
-      });
+      this._updateOptions(dt);
 
       this.flamePulse += dt * 18;
       // fire
       this.fireT -= dt; this.missileT -= dt;
       if (AV.Input.fire && this.fireT <= 0) this.fire(game);
-      if (this.hasMissile && AV.Input.fire && this.missileT <= 0) {
+      // two-stage missiles: lvl 1 = a floor-hugging missile, lvl 2 also adds a
+      // ceiling-hugging one.
+      if (this.missileLvl > 0 && AV.Input.fire && this.missileT <= 0) {
         this.missileT = 0.6;
-        // two-stage missiles: one hugs the floor, one hugs the ceiling
         Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false });
-        Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true });
+        if (this.missileLvl >= 2) Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true });
         Audio.sfx('missile');
       }
+    }
+
+    // Options either trail the ship with a soft lag (they arrive late and never
+    // snap onto the ship), or — once orbit mode is unlocked — circle it at a
+    // fixed radius.
+    _updateOptions(dt) {
+      if (!this.options.length) return;
+      if (this.orbit) {
+        this.orbitA += dt * 2.4;
+        const R = 46, n = this.options.length;
+        this.options.forEach((o, i) => {
+          const a = this.orbitA + i * U.TAU / n;
+          o.x = this.x + Math.cos(a) * R; o.y = this.y + Math.sin(a) * R;
+        });
+        return;
+      }
+      // Distance-based path trail: options sit at fixed distances back along the
+      // ship's recent path. They follow the exact route with a lag and — because
+      // spacing is measured in path distance, not time — they hold their place
+      // when the ship is idle instead of sliding back onto it.
+      const GAP = 30, tr = this.trail;
+      const head = tr[tr.length - 1];
+      if (Math.hypot(this.x - head[0], this.y - head[1]) > 3) tr.push([this.x, this.y]);
+      const need = GAP * this.options.length + 40;
+      let total = 0;                                 // trim breadcrumbs older than needed
+      for (let i = tr.length - 1; i > 0; i--) {
+        total += Math.hypot(tr[i][0] - tr[i - 1][0], tr[i][1] - tr[i - 1][1]);
+        if (total > need) { tr.splice(0, i - 1); break; }
+      }
+      this.options.forEach((o, idx) => {
+        let want = GAP * (idx + 1), acc = 0, px = this.x, py = this.y;
+        for (let i = tr.length - 1; i >= 0; i--) {
+          const seg = Math.hypot(tr[i][0] - px, tr[i][1] - py);
+          if (acc + seg >= want) { const t = (want - acc) / (seg || 1); o.x = px + (tr[i][0] - px) * t; o.y = py + (tr[i][1] - py) * t; return; }
+          acc += seg; px = tr[i][0]; py = tr[i][1];
+        }
+        o.x = px; o.y = py;                          // not enough trail yet → tail end
+      });
     }
 
     fire(game) {
