@@ -37,6 +37,7 @@
     // ox/oy = base centre, kx/ky = knob centre (world px) for drawing.
     touch: { active: false, vx: 0, vy: 0, ox: 0, oy: 0, kx: 0, ky: 0 },
     fire: false,
+    auto: false,            // auto-fire toggle (FIRE acts as a toggle switch)
     _startTouch: false,
     power: false,
     _firePulse: false,

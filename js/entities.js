@@ -226,12 +226,13 @@
       this._updateOptions(dt);
 
       this.flamePulse += dt * 18;
-      // fire
+      // fire — hold the button, or leave auto-fire toggled on
       this.fireT -= dt; this.missileT -= dt;
-      if (AV.Input.fire && this.fireT <= 0) this.fire(game);
+      const firing = AV.Input.fire || AV.Input.auto;
+      if (firing && this.fireT <= 0) this.fire(game);
       // two-stage missiles: lvl 1 = a floor-hugging missile, lvl 2 also adds a
       // ceiling-hugging one.
-      if (this.missileLvl > 0 && AV.Input.fire && this.missileT <= 0) {
+      if (this.missileLvl > 0 && firing && this.missileT <= 0) {
         this.missileT = 0.6;
         const dur = MISSILE_RANGE * (this.missileLvl >= 3 ? 2 : 1);   // lvl 3 doubles durability
         Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false, dur });
