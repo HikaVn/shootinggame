@@ -7,9 +7,10 @@
 
   const W = AV.W = 960, H = AV.H = 540;
   const GROUND = H - 8;
-  // Missile durability budget (units = vertical px it can climb). Tuned so a
-  // sustained 60° climb (rise = run·tan60°) carries it ~1/4 of the screen wide.
-  const MISSILE_DUR = (W / 4) * Math.tan(60 * Math.PI / 180);
+  // Missile durability, measured in flat-travel pixels: on flat/descending ground
+  // it covers ~2/3 of the screen. Climbing multiplies the spend rate via a
+  // quadratic fit through 0°→1×, 30°→1.5×, 60°→3×  (m = 1 + deg²/1800).
+  const MISSILE_RANGE = W * 2 / 3;
 
   // Difficulty scaling for hard-mode loops: enemy/bullet speed and spawn counts.
   AV.diff = AV.diff || { speed: 1, count: 1 };
@@ -69,14 +70,18 @@
         }
         return;
       }
-      // phase 1 — ride the surface, spending durability on every upward climb
+      // phase 1 — ride the surface, spending durability as it advances. Flat or
+      // descending ground spends at 1×; climbing spends faster by m(slope).
       const dx = Math.abs(b.vx) * dt;
       const cur = surfAt(b.x), ahead = surfAt(b.x + Math.sign(b.vx) * dx);
       const climb = ceiling ? (ahead - cur) : (cur - ahead);   // >0 = surface rising into the path
-      if (climb > 0) {
-        b.dur -= climb;
-        if (climb > dx * 0.4) FX.fire(b.x, b.y, 1, ceiling ? 1 : -1);   // sparks on steeper climbs
+      let mult = 1;
+      if (climb > 0 && dx > 0) {
+        const deg = Math.atan2(climb, dx) * 180 / Math.PI;      // climb angle in degrees
+        mult = 1 + deg * deg / 1800;                            // 0°→1, 30°→1.5, 60°→3
+        if (mult > 2) FX.fire(b.x, b.y, 1, ceiling ? 1 : -1);   // sparks on steep climbs
       }
+      b.dur -= mult * dx;
       b.y = cur + (ceiling ? 4 : -4); b.vy = 0;
       if (b.dur <= 0) { FX.explosion(b.x, b.y, 0.7); Audio.sfx('hit'); b.life = 0; }
     },
@@ -220,7 +225,7 @@
       // ceiling-hugging one.
       if (this.missileLvl > 0 && AV.Input.fire && this.missileT <= 0) {
         this.missileT = 0.6;
-        const dur = MISSILE_DUR * (this.missileLvl >= 3 ? 2 : 1);   // lvl 3 doubles durability
+        const dur = MISSILE_RANGE * (this.missileLvl >= 3 ? 2 : 1);   // lvl 3 doubles durability
         Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false, dur });
         if (this.missileLvl >= 2) Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true, dur });
         Audio.sfx('missile');
