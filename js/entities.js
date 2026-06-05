@@ -305,7 +305,7 @@
     }
     die(game) {
       this.alive = false; FX.explosion(this.x, this.y, this.w > 44 ? 1.4 : 1); Audio.sfx('explode');
-      game.addScore(this.score);
+      if (game.scoreKill) game.scoreKill(this.score, this.x, this.y); else game.addScore(this.score);
       if (this.dropChance > 0 && U.chance(this.dropChance)) game.spawnCapsule(this.x, this.y);
       if (this.onDeath) this.onDeath(game);
     }
@@ -332,8 +332,9 @@
       if (this.shoots && p.alive) {
         this.fireT -= dt;
         if (this.fireT <= 0 && this.x < W && this.x > 60) {
-          this.fireT = U.rand(1.0, 2.0);
-          const spd = this.type === 'turret' ? 280 : 230;
+          const r = game.rank ? game.rank() : 0;                 // difficulty scaling
+          this.fireT = U.rand(1.0, 2.0) / (1 + r * 0.6);
+          const spd = (this.type === 'turret' ? 280 : 230) * (1 + r * 0.35);
           Bullets.aim(this.x, this.y, p.x, p.y, spd, this.homing ? { homing: true, target: p, col: '#ffba5a' } : {});
         }
       }

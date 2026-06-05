@@ -12,6 +12,7 @@
     player: null, enemies: [], capsules: [], pressers: [], boss: null,
     stages: null, stageIdx: 0, clock: 0, evIdx: 0, _sid: 0,
     score: 0, best: 0, lives: 3, continues: 0,
+    combo: 0, mult: 1, comboT: 0,
     banners: [], flashes: [], knownHazards: new Set(),
     respawnT: 0, clearT: 0, shake: 0, god: false, paused: false,
     lastHazard: null, started: false, bossActive: false,
@@ -46,7 +47,7 @@
       this.clock = 0; this.evIdx = 0; this.bossActive = false; this.boss = null;
       this.enemies.length = 0; this.capsules.length = 0; this.pressers.length = 0;
       Bullets.clear(); FX.clear(); FX.resetTimers();
-      this.banners.length = 0; this.flashes.length = 0;
+      this.banners.length = 0; this.flashes.length = 0; this.resetCombo();
       this.bg = new AV.Background(st.id);
       if (!this.player) this.player = new AV.Player();
       this.player.reset(false); this.player.alive = true; this.player.inv = 2;
@@ -63,7 +64,7 @@
       this.banner('STAGE CLEAR', '#7ef', 3.5); Audio.sfx('clear'); Audio.stopBGM();
     },
     onPlayerDeath() {
-      this.shake = 1.0;
+      this.shake = 1.0; this.resetCombo();
       if (this.lastHazard) { this.knownHazards.add(this.lastHazard); this._saveKnown(); }
       this.lives--; this.respawnT = 1.6;
     },
@@ -73,6 +74,21 @@
     addPresser(p) { this.pressers.push(p); },
     spawnCapsule(x, y, fake) { this.capsules.push(new AV.Capsule(x, y, fake)); },
     addScore(n) { this.score += n; if (this.score > this.best) { this.best = this.score; try { localStorage.setItem('av_best', this.best); } catch (e) {} } },
+    // A kill bumps the chain; consecutive kills raise the multiplier (≤ x8).
+    scoreKill(base, x, y) {
+      this.combo++; this.comboT = 2.6;
+      this.mult = Math.min(8, 1 + Math.floor(this.combo / 4));
+      this.addScore(Math.round(base * this.mult));
+      if (this.mult >= 2 && this.combo % 4 === 0 && x != null) FX.ring(x, y, '#ffd24a', 26, 2);
+    },
+    resetCombo() { this.combo = 0; this.mult = 1; this.comboT = 0; },
+    // Difficulty "rank": rises with stage progress and how powered-up the ship
+    // is, so a fully-equipped run still faces pressure. Capped & gentle.
+    rank() {
+      const p = this.player; if (!p) return this.stageIdx * 0.18;
+      const pw = p.speedLvl + p.options.length + (p.weapon !== 'normal' ? 1 : 0) + (p.hasMissile ? 1 : 0);
+      return Math.min(1.2, this.stageIdx * 0.18 + pw * 0.06);
+    },
     banner(text, color, life) { this.banners.push({ text, color: color || '#fff', life: life || 2, max: life || 2 }); },
     flash(text, color) { this.flashes.push({ text, color: color || '#7ef', life: 1.4, max: 1.4 }); },
     warnIfKnown(key, msg) { if (this.knownHazards.has(key)) { this.banner('⚠ ' + msg, '#fd5', 2.0); Audio.sfx('alarm'); } },
@@ -146,6 +162,7 @@
         while (this.evIdx < evs.length && evs[this.evIdx].t <= this.clock) { evs[this.evIdx].fn(this); this.evIdx++; }
       }
 
+      if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.resetCombo(); }
       this.player.update(dt, this);
       this._updateActors(dt);
       Bullets.update(dt);

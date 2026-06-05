@@ -86,6 +86,20 @@
       ctx.fillStyle = '#9fe'; ctx.fillText('SHIPS', lx - 6, 23);
       for (let i = 0; i < Math.max(0, g.lives); i++) { this._miniShip(ctx, lx + 34 + i * 22, 16); }
 
+      // combo / score multiplier
+      if (g.mult > 1) {
+        const cols = ['#7ef', '#9f9', '#fd5', '#fb6', '#f88', '#f6f', '#f6f'];
+        const col = cols[Math.min(cols.length - 1, g.mult - 2)] || '#fd5';
+        const fade = g.comboT < 0.6 ? g.comboT / 0.6 : 1;        // dim just before it lapses
+        ctx.globalAlpha = fade; ctx.textAlign = 'left';
+        ctx.font = '900 22px Orbitron, Arial Black, sans-serif';
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10;
+        ctx.fillText('x' + g.mult, 12, 56);
+        ctx.shadowBlur = 0; ctx.font = '12px Orbitron, monospace'; ctx.fillStyle = '#cdeaff';
+        ctx.fillText(g.combo + ' CHAIN', 54, 56);
+        ctx.globalAlpha = 1;
+      }
+
       // power meter (Gradius style) bottom
       this._powerMeter(ctx);
 

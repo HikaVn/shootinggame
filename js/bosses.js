@@ -24,22 +24,40 @@
     // returns {consumed, damaged} for a player bullet
     onBulletHit(b) {
       if (!this.alive || this.entering) return null;
-      // vulnerable core checked first so armor never "steals" a hit meant for the core
-      const ordered = this.parts.slice().sort((a, c) => (c.vuln ? 1 : 0) - (a.vuln ? 1 : 0));
+      const bb = { x: b.x, y: b.y, w: (b.r || 3) * 2, h: (b.r || 3) * 2 };
+      // priority: vulnerable core, then destructible turrets, then armor —
+      // so a shot meant for the core/turret is never "stolen" by armor.
+      const pr = (p) => (p.vuln ? 2 : (p.destructible && !p.destroyed ? 1 : 0));
+      const ordered = this.parts.slice().sort((a, c) => pr(c) - pr(a));
       for (const p of ordered) {
-        if (U.aabb({ x: b.x, y: b.y, w: (b.r || 3) * 2, h: (b.r || 3) * 2 }, this._hb(p))) {
-          if (p.vuln) {
-            this.hp -= b.dmg; p.flash = 0.1; this.coreFlash = 0.12;
-            Audio.sfx('bosshit'); FX.spark(b.x, b.y, 6, '#fff', 220);
-            if (this.hp <= 0) this.startDeath();
-            return { consumed: !b.pierce, damaged: true };
-          } else {
-            p.flash = 0.06; FX.spark(b.x, b.y, 3, '#9cf', 120);
-            return { consumed: !b.pierce, damaged: false };
-          }
+        if (p.destroyed) continue;
+        if (!U.aabb(bb, this._hb(p))) continue;
+        if (p.vuln) {
+          this.hp -= b.dmg; p.flash = 0.1; this.coreFlash = 0.12;
+          Audio.sfx('bosshit'); FX.spark(b.x, b.y, 6, '#fff', 220);
+          if (this.hp <= 0) this.startDeath();
+          return { consumed: !b.pierce, damaged: true };
         }
+        if (p.destructible) {            // independently destroyable gun turret
+          p.hp -= b.dmg; p.flash = 0.08; Audio.sfx('hit'); FX.spark(b.x, b.y, 4, '#ffc070', 180);
+          if (p.hp <= 0) {
+            p.destroyed = true; FX.explosion(this.x + p.ox, this.y + p.oy, 1.0); Audio.sfx('explode');
+            if (this.game.scoreKill) this.game.scoreKill(600, this.x + p.ox, this.y + p.oy); else this.game.addScore(600);
+          }
+          return { consumed: !b.pierce, damaged: false };
+        }
+        p.flash = 0.06; FX.spark(b.x, b.y, 3, '#9cf', 120);   // armor deflect
+        return { consumed: !b.pierce, damaged: false };
       }
       return null;
+    }
+
+    // Surviving turrets keep the boss firing fast; destroying them slows it down.
+    _turretPenalty() {
+      const turrets = this.parts.filter((p) => p.destructible);
+      if (!turrets.length) return 1;
+      const dead = turrets.filter((p) => p.destroyed).length;
+      return 1 + dead * 0.6;
     }
 
     // collide player against any solid part (armor or core)
@@ -93,7 +111,12 @@
       }
 
       this.atkT -= dt;
-      if (this.atkT <= 0) { phases[idx].fire(this, game); }
+      if (this.atkT <= 0) {
+        phases[idx].fire(this, game);
+        // rank speeds the boss up; lost turrets slow it down.
+        const r = game.rank ? game.rank() : 0;
+        this.atkT = this.atkT / (1 + r * 0.45) * this._turretPenalty();
+      }
     }
 
     /* ---- attack primitives ---- */
@@ -140,6 +163,11 @@
       const panel = Art.get('bossPanel'), core = Art.get('bossCore'), tur = Art.get('bossTurret');
       ctx.save(); ctx.translate(this.x, this.y);
       for (const p of this.parts) {
+        if (p.destroyed) { // burnt-out turret stub
+          ctx.save(); ctx.translate(p.ox, p.oy); ctx.fillStyle = '#0a0d12';
+          ctx.beginPath(); ctx.arc(0, 0, p.w * 0.3, 0, U.TAU); ctx.fill();
+          ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore(); continue;
+        }
         ctx.save(); ctx.translate(p.ox, p.oy);
         if (p.vuln) {
           // pulsing exposed core
@@ -196,8 +224,8 @@
       parts: [
         { ox: 60, oy: -110, w: 100, h: 110, kind: 'panel' },
         { ox: 60, oy: 110, w: 100, h: 110, kind: 'panel' },
-        { ox: 80, oy: -150, w: 44, h: 44, kind: 'turret' },
-        { ox: 80, oy: 150, w: 44, h: 44, kind: 'turret' },
+        { ox: 80, oy: -150, w: 44, h: 44, kind: 'turret', destructible: true, hp: 24 },
+        { ox: 80, oy: 150, w: 44, h: 44, kind: 'turret', destructible: true, hp: 24 },
         { ox: -30, oy: 0, w: 80, h: 80, vuln: true },
       ],
       phases: [
@@ -211,8 +239,8 @@
       parts: [
         { ox: 50, oy: -130, w: 110, h: 120, kind: 'panel' },
         { ox: 50, oy: 130, w: 110, h: 120, kind: 'panel' },
-        { ox: 90, oy: -170, w: 44, h: 44, kind: 'turret' },
-        { ox: 90, oy: 170, w: 44, h: 44, kind: 'turret' },
+        { ox: 90, oy: -170, w: 44, h: 44, kind: 'turret', destructible: true, hp: 28 },
+        { ox: 90, oy: 170, w: 44, h: 44, kind: 'turret', destructible: true, hp: 28 },
         { ox: -20, oy: 0, w: 88, h: 88, vuln: true },
       ],
       phases: [
