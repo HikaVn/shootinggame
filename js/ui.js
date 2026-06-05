@@ -186,13 +186,17 @@
         ctx.strokeStyle = active ? '#fff' : '#3a5a72'; ctx.lineWidth = active ? 2.5 : 1;
         if (active) { ctx.shadowColor = '#f55'; ctx.shadowBlur = 12; } ctx.strokeRect(x, y0, bw, bh); ctx.shadowBlur = 0;
         ctx.fillStyle = active ? '#fff' : owned ? '#bff' : '#7da';
-        const label = (touch ? SHORT[slots[i]] : slots[i]) + (slots[i] === 'SPEED' && p.speedLvl ? ' ' + p.speedLvl : '');
+        let suffix = '';
+        if (slots[i] === 'SPEED' && p.speedLvl) suffix = ' ' + p.speedLvl;
+        else if (slots[i] === 'MISSILE' && p.missileLvl) suffix = ' ' + p.missileLvl;
+        else if (slots[i] === 'OPTION' && p.orbit) suffix = '○';
+        const label = (touch ? SHORT[slots[i]] : slots[i]) + suffix;
         ctx.fillText(label, x + bw / 2, y0 + bh / 2 + 1);
       }
     },
     _owned(p, slot) {
       switch (slot) {
-        case 'SPEED': return p.speedLvl > 0; case 'MISSILE': return p.hasMissile;
+        case 'SPEED': return p.speedLvl > 0; case 'MISSILE': return p.missileLvl > 0;
         case 'DOUBLE': return p.weapon === 'double'; case 'SPREAD': return p.weapon === 'spread';
         case 'LASER': return p.weapon === 'laser'; case 'OPTION': return p.options.length > 0;
         case 'SHIELD': return p.shield > 0;
