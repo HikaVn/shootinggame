@@ -43,9 +43,10 @@
       this.loopCount = 0; this._applyDiff();
       this.player = new AV.Player(); this.startStage(0);
     },
-    // Each completed loop ramps enemy/bullet speed and spawn counts by 1.2×.
-    // NOTE: named loopCount, not `loop`, so it never shadows the loop() method.
-    _applyDiff() { const m = Math.pow(1.2, this.loopCount || 0); AV.diff = { speed: m, count: m }; },
+    // Each completed loop ramps enemy/bullet speed & counts by 1.2× and spawn
+    // frequency by 1.5×. NOTE: named loopCount, not `loop`, so it never shadows
+    // the loop() method.
+    _applyDiff() { const n = this.loopCount || 0; AV.diff = { speed: Math.pow(1.2, n), count: Math.pow(1.2, n), freq: Math.pow(1.5, n) }; },
     startStage(idx) {
       this.stageIdx = idx; const st = this.stages[idx]; this._sid++;
       this.clock = 0; this.evIdx = 0; this.bossActive = false; this.boss = null;
@@ -78,6 +79,15 @@
     /* ---------------- spawning / scoring ---------------- */
     addEnemy(e) { this.enemies.push(e); },
     addPresser(p) { this.pressers.push(p); },
+    // Decoy trap: 5 bolts fly out radially, then home onto the player.
+    _decoyBurst(c) {
+      FX.explosion(c.x, c.y, 0.9); Audio.sfx('explode');
+      const spd = 200;
+      for (let k = 0; k < 5; k++) {
+        const a = k / 5 * U.TAU + U.rand(-0.1, 0.1);
+        Bullets.eAdd({ x: c.x, y: c.y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 5, dmg: 1, col: '#c6f', homing: true, target: this.player });
+      }
+    },
     spawnCapsule(x, y, fake) { this.capsules.push(new AV.Capsule(x, y, fake)); },
     addScore(n) { this.score += n; if (this.score > this.best) { this.best = this.score; try { localStorage.setItem('av_best', this.best); } catch (e) {} } },
     // A kill bumps the chain; consecutive kills raise the multiplier (≤ x8).
@@ -168,9 +178,10 @@
       // power activation
       if (AV.Input.consumePower()) this.player.applyPower(this);
 
-      // advance timeline (until boss active)
+      // advance timeline (until boss active). Hard-mode loops run it faster so
+      // waves arrive 1.5× as often.
       if (!this.bossActive) {
-        this.clock += dt; const evs = this.stages[this.stageIdx].events;
+        this.clock += dt * (AV.diff.freq || 1); const evs = this.stages[this.stageIdx].events;
         while (this.evIdx < evs.length && evs[this.evIdx].t <= this.clock) { evs[this.evIdx].fn(this); this.evIdx++; }
       }
 
@@ -203,6 +214,12 @@
           if (e.alive && U.aabb(bb, e.hitbox)) { e.damage(b.dmg, this); if (!b.pierce) { consumed = true; } break; }
         }
         if (!consumed && this.boss) { const r = this.boss.onBulletHit(b); if (r && r.consumed) consumed = true; }
+        // shooting a decoy detonates it into a radial burst of 5 homing bolts
+        if (!consumed) {
+          for (const c of this.capsules) {
+            if (c.alive && c.fake && U.aabb(bb, c.hitbox)) { this._decoyBurst(c); c.alive = false; consumed = true; break; }
+          }
+        }
         if (consumed) Bullets.player.splice(i, 1);
       }
       if (!p.alive) return;
