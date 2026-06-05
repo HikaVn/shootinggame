@@ -262,10 +262,11 @@
   /* ----------------------------------------------------------------- *
    * Spawn helpers
    * ----------------------------------------------------------------- */
-  function row(game, type, n, y, sx, gap, opt) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, (sx || W + 30) + i * (gap || 70), y, opt)); }
-  function wave(game, type, n, yFrom, yTo, opt) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, W + 30 + i * 70, U.lerp(yFrom, yTo, n > 1 ? i / (n - 1) : 0), opt)); }
+  const scaleN = (n) => Math.round(n * AV.diff.count);   // hard-mode loops add ~20% more enemies
+  function row(game, type, n, y, sx, gap, opt) { n = scaleN(n); for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, (sx || W + 30) + i * (gap || 70), y, opt)); }
+  function wave(game, type, n, yFrom, yTo, opt) { n = scaleN(n); for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy(type, W + 30 + i * 70, U.lerp(yFrom, yTo, n > 1 ? i / (n - 1) : 0), opt)); }
   // Terrain crawlers: ceiling=false → floor, ceiling=true → ceiling.
-  function crawlers(game, n, ceiling, gap) { for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy('crawler', W + 30 + i * (gap || 120), 0, { ceiling: !!ceiling })); }
+  function crawlers(game, n, ceiling, gap) { n = scaleN(n); for (let i = 0; i < n; i++) game.addEnemy(new AV.Enemy('crawler', W + 30 + i * (gap || 120), 0, { ceiling: !!ceiling })); }
 
   /* ----------------------------------------------------------------- *
    * Stage timelines

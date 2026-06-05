@@ -40,8 +40,11 @@
     toTitle() { this.state = 'title'; this.bossActive = false; Audio.playBGM('title'); },
     newGame() {
       this.score = 0; this.lives = 3; this.continues = 0; this.stageIdx = 0;
+      this.loop = 0; this._applyDiff();
       this.player = new AV.Player(); this.startStage(0);
     },
+    // Each completed loop ramps enemy/bullet speed and spawn counts by 1.2×.
+    _applyDiff() { const m = Math.pow(1.2, this.loop || 0); AV.diff = { speed: m, count: m }; },
     startStage(idx) {
       this.stageIdx = idx; const st = this.stages[idx]; this._sid++;
       this.clock = 0; this.evIdx = 0; this.bossActive = false; this.boss = null;
@@ -124,8 +127,13 @@
         FX.update(dt);
         this.clearT -= dt;
         if (this.clearT <= 0) {
-          if (this.stageIdx >= this.stages.length - 1) { this.state = 'win'; Audio.playBGM('title'); }
-          else this.startStage(this.stageIdx + 1);
+          if (this.stageIdx >= this.stages.length - 1) {
+            // Cleared every stage → loop back into a harder run (1.2× speed & numbers).
+            this.loop = (this.loop || 0) + 1; this._applyDiff();
+            this.startStage(0);
+            this.banner('HARD MODE  ×' + AV.diff.speed.toFixed(2) + '\nLOOP ' + (this.loop + 1), '#f55', 3.2);
+            Audio.sfx('warn');
+          } else this.startStage(this.stageIdx + 1);
         }
         return;
       }
