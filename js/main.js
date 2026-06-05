@@ -9,7 +9,7 @@
   const Game = AV.Game = {
     state: 'title',          // title | play | stageclear | gameover | continue | win | paused
     canvas: null, ctx: null,
-    player: null, enemies: [], capsules: [], pressers: [], boss: null,
+    player: null, enemies: [], capsules: [], pressers: [], boss: null, terrain: null,
     stages: null, stageIdx: 0, clock: 0, evIdx: 0, _sid: 0,
     score: 0, best: 0, lives: 3, continues: 0,
     combo: 0, mult: 1, comboT: 0,
@@ -49,6 +49,7 @@
       Bullets.clear(); FX.clear(); FX.resetTimers();
       this.banners.length = 0; this.flashes.length = 0; this.resetCombo();
       this.bg = new AV.Background(st.id);
+      this.terrain = new AV.Terrain(st.id);
       if (!this.player) this.player = new AV.Player();
       this.player.reset(false); this.player.alive = true; this.player.inv = 2;
       this.state = 'play'; this.banner(st.name, '#7ef', 2.2);
@@ -57,6 +58,7 @@
     startBoss() {
       if (this.bossActive) return;
       this.bossActive = true; this.boss = new AV.Boss(AV.BOSS_CFG[this.stages[this.stageIdx].boss], this);
+      if (this.terrain) this.terrain.active = false;   // clear terrain for a fair boss arena
       this.banner('!! WARNING !!\n' + this.boss.name, '#f55', 2.6); Audio.sfx('warn'); Audio.playBGM('boss');
     },
     onBossDefeated() {
@@ -111,6 +113,7 @@
       this.flashes.forEach((f) => f.life -= dt); this.flashes = this.flashes.filter((f) => f.life > 0);
       if (this.shake > 0) this.shake -= dt * 2;
       if (this.bg) this.bg.update(dt);
+      if (this.terrain && this.state === 'play') this.terrain.update(dt);
 
       if (this.state === 'title') {
         if (AV.Input.fire || AV.Input.consumePressed('start') || AV.Input._startTouch) { AV.Input._startTouch = false; Audio.resume(); this.newGame(); }
@@ -218,6 +221,8 @@
       }
       // pressers -> player
       for (const pr of this.pressers) { if (pr.hits(p)) { this.lastHazard = pr.hazardKey; if (!this.god) p.hit(this); } }
+      // lethal terrain -> player
+      if (this.terrain && this.terrain.hits(p)) { this.lastHazard = 'terrain'; if (!this.god) p.hit(this); }
       // boss body -> player
       if (this.boss && this.boss.alive && !this.boss.entering) { if (U.aabb(ph, this.boss.bodyHitbox())) { this.lastHazard = 'boss'; if (!this.god) p.hit(this); } }
     },
@@ -226,6 +231,7 @@
     draw() {
       const ctx = this.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
       if (this.bg) this.bg.draw(ctx); else { ctx.fillStyle = '#04060f'; ctx.fillRect(0, 0, W, H); }
+      if (this.terrain) this.terrain.draw(ctx);
 
       if (this.shake > 0) { ctx.save(); const s = this.shake * 8; ctx.translate(U.rand(-s, s), U.rand(-s, s)); }
 
