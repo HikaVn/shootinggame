@@ -12,8 +12,9 @@
   // quadratic fit through 0°→1×, 30°→1.5×, 60°→3×  (m = 1 + deg²/1800).
   const MISSILE_RANGE = W * 2 / 3;
 
-  // Difficulty scaling for hard-mode loops: enemy/bullet speed and spawn counts.
-  AV.diff = AV.diff || { speed: 1, count: 1 };
+  // Difficulty scaling for hard-mode loops: enemy/bullet speed, spawn counts,
+  // and spawn frequency (how often waves arrive).
+  AV.diff = AV.diff || { speed: 1, count: 1, freq: 1 };
 
   /* ----------------------------------------------------------------- *
    * Bullet manager
@@ -169,7 +170,8 @@
         slot === 'SPREAD' ? this.weapon !== 'spread' :
         slot === 'LASER' ? this.weapon !== 'laser' :
         slot === 'OPTION' ? (this.options.length < 3 || !this.orbit) :
-        slot === 'SHIELD' ? this.shield < 16 : true
+        slot === 'SHIELD' ? true :          // gain a shield, or (if already up) trigger the bullet-clear
+        true
       );
       if (!available) { Audio.sfx('select'); if (game) game.flash(slot + ' MAX', '#fd5'); return; }
 
@@ -181,7 +183,13 @@
         case 'LASER': this.weapon = 'laser'; break;
         // up to 3 trailing options; a 4th OPTION pickup makes them orbit the ship
         case 'OPTION': if (this.options.length < 3) this.options.push({ x: this.x, y: this.y }); else this.orbit = true; break;
-        case 'SHIELD': this.shield = 16; this.shieldMax = 16; break;
+        case 'SHIELD':
+          if (this.shield > 0) {                       // already shielded → panic clear: wipe every enemy bullet
+            Bullets.enemy.length = 0;
+            FX.ring(this.x, this.y, '#7ef', 220, 8); FX.spark(this.x, this.y, 24, '#bff', 320);
+            if (game) game.flash('ALL CLEAR', '#7ef');
+          }
+          this.shield = 16; this.shieldMax = 16; break;
       }
       Audio.sfx('levelup'); FX.ring(this.x, this.y, '#7ef', 60, 4);
       this.cursor = -1;
