@@ -123,6 +123,100 @@
   AV.Background = Background;
 
   /* ----------------------------------------------------------------- *
+   * Lethal terrain — procedurally generated cave walls (roguelike: random
+   * every run, tighter/taller each stage). Touching it kills the player.
+   * ----------------------------------------------------------------- */
+  class Terrain {
+    constructor(stage) {
+      const d = U.clamp(stage - 1, 0, 2);                 // 0..2 difficulty
+      this.stage = stage; this.step = 24; this.t = 0; this.active = true;
+      this.n = Math.ceil(W / this.step) + 3;
+      this.speed = 150 + d * 28;                           // scroll speed
+      this.minGap = 250 - d * 48;                          // guaranteed passable gap (202/154 tighter)
+      this.maxWall = 64 + d * 46;                          // max protrusion from each edge
+      this.vol = 16 + d * 11;                              // random-walk volatility
+      this.spikeP = 0.04 + d * 0.025;                      // chance of a near-closure spike
+      this.warmup = 3.2;                                   // open sky at the start
+      this.scroll = 0; this._c = 0; this._f = 0;
+      this.ceil = new Array(this.n).fill(0);
+      this.floor = new Array(this.n).fill(0);
+      this.fill = ['#10203a', '#1b1030', '#241010'][d] || '#10203a';
+      this.edge = ['#4a86c8', '#9a6ad8', '#ff6a2a'][d] || '#4a86c8';
+    }
+    _gen() {
+      const open = this.warmup > 0 || U.chance(0.13);      // breathing gaps
+      if (open) {
+        this._c = Math.max(0, this._c - this.vol * 1.6);
+        this._f = Math.max(0, this._f - this.vol * 1.6);
+      } else {
+        this._c = U.clamp(this._c + U.rand(-this.vol, this.vol * 1.15), 0, this.maxWall);
+        this._f = U.clamp(this._f + U.rand(-this.vol, this.vol * 1.15), 0, this.maxWall);
+        if (U.chance(this.spikeP)) { if (U.chance(0.5)) this._c = this.maxWall; else this._f = this.maxWall; }
+      }
+      // always keep a passable corridor
+      let gap = H - this._c - this._f;
+      if (gap < this.minGap) {
+        const over = this.minGap - gap;
+        if (this._c >= this._f) this._c = Math.max(0, this._c - over); else this._f = Math.max(0, this._f - over);
+        gap = H - this._c - this._f;
+        if (gap < this.minGap) this._f = Math.max(0, this._f - (this.minGap - gap));
+      }
+      return { c: this._c, f: this._f };
+    }
+    update(dt) {
+      if (!this.active) return;
+      this.t += dt; if (this.warmup > 0) this.warmup -= dt;
+      this.scroll += this.speed * dt;
+      while (this.scroll >= this.step) {
+        this.scroll -= this.step;
+        this.ceil.shift(); this.floor.shift();
+        const g = this._gen(); this.ceil.push(g.c); this.floor.push(g.f);
+      }
+    }
+    sample(sx) {
+      const fx = (sx + this.scroll) / this.step;
+      let i = Math.floor(fx); const frac = fx - i; i = U.clamp(i, 0, this.n - 2);
+      return { ceil: U.lerp(this.ceil[i], this.ceil[i + 1], frac), floor: U.lerp(this.floor[i], this.floor[i + 1], frac) };
+    }
+    hits(p) {
+      if (!this.active) return false;
+      const hb = p.hitbox;
+      for (const sx of [hb.x - hb.w / 2, hb.x, hb.x + hb.w / 2]) {
+        const s = this.sample(sx);
+        if (p.y - hb.h / 2 < s.ceil || p.y + hb.h / 2 > H - s.floor) return true;
+      }
+      return false;
+    }
+    draw(ctx) {
+      if (!this.active) return;
+      const st = this.step, sc = this.scroll;
+      ctx.save();
+      // ceiling slab
+      ctx.beginPath(); ctx.moveTo(-st, -2);
+      for (let i = 0; i < this.n; i++) ctx.lineTo(i * st - sc, this.ceil[i]);
+      ctx.lineTo(W + st, -2); ctx.closePath();
+      let g = ctx.createLinearGradient(0, 0, 0, this.maxWall + 40);
+      g.addColorStop(0, '#05060b'); g.addColorStop(1, this.fill);
+      ctx.fillStyle = g; ctx.fill();
+      // floor slab
+      ctx.beginPath(); ctx.moveTo(-st, H + 2);
+      for (let i = 0; i < this.n; i++) ctx.lineTo(i * st - sc, H - this.floor[i]);
+      ctx.lineTo(W + st, H + 2); ctx.closePath();
+      g = ctx.createLinearGradient(0, H - this.maxWall - 40, 0, H);
+      g.addColorStop(0, this.fill); g.addColorStop(1, '#05060b');
+      ctx.fillStyle = g; ctx.fill();
+      // glowing danger edges (clear, fair boundary)
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = 2.5; ctx.strokeStyle = this.edge;
+      ctx.shadowColor = this.edge; ctx.shadowBlur = 8;
+      ctx.beginPath(); for (let i = 0; i < this.n; i++) { const x = i * st - sc, y = this.ceil[i]; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+      ctx.beginPath(); for (let i = 0; i < this.n; i++) { const x = i * st - sc, y = H - this.floor[i]; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+      ctx.restore();
+    }
+  }
+  AV.Terrain = Terrain;
+
+
+  /* ----------------------------------------------------------------- *
    * Presser hazard (initial-death gimmick)
    * ----------------------------------------------------------------- */
   class Presser {
