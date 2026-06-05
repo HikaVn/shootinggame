@@ -25,19 +25,25 @@
       const I = AV.Input; let moveId = null;
       const fireBtn = document.getElementById('btnFire'); const powBtn = document.getElementById('btnPower');
       if (fireBtn) {
-        const fd = (e) => { e.preventDefault(); I.fire = true; AV.Audio.resume(); };
-        const fu = (e) => { e.preventDefault(); I.fire = false; };
-        fireBtn.addEventListener('touchstart', fd); fireBtn.addEventListener('touchend', fu);
+        const fd = (e) => { e.preventDefault(); I.fire = true; fireBtn.classList.add('pressed'); AV.Audio.resume(); };
+        const fu = (e) => { e.preventDefault(); I.fire = false; fireBtn.classList.remove('pressed'); };
+        fireBtn.addEventListener('touchstart', fd); fireBtn.addEventListener('touchend', fu); fireBtn.addEventListener('touchcancel', fu);
         fireBtn.addEventListener('mousedown', fd); fireBtn.addEventListener('mouseup', fu);
       }
       if (powBtn) {
-        const pd = (e) => { e.preventDefault(); I._powerPulse = true; AV.Audio.resume(); };
+        // a tap: pulse the outline briefly so the press is acknowledged
+        const pu = () => powBtn.classList.remove('pressed');
+        const pd = (e) => { e.preventDefault(); I._powerPulse = true; powBtn.classList.add('pressed'); clearTimeout(powBtn._pt); powBtn._pt = setTimeout(pu, 220); AV.Audio.resume(); };
         powBtn.addEventListener('touchstart', pd); powBtn.addEventListener('mousedown', pd);
+        powBtn.addEventListener('touchend', pu); powBtn.addEventListener('touchcancel', pu); powBtn.addEventListener('mouseup', pu);
       }
       const fullBtn = document.getElementById('btnFull');
       if (fullBtn) {
-        const tg = (e) => { e.preventDefault(); this.toggleFullscreen(); };
-        fullBtn.addEventListener('touchstart', tg); fullBtn.addEventListener('click', tg);
+        // A tap fires BOTH touchstart and a synthesized click — toggling twice
+        // (enter then exit) so nothing happened. Debounce so one tap = one toggle.
+        let lastTg = 0;
+        const tg = (e) => { e.preventDefault(); e.stopPropagation(); const now = Date.now(); if (now - lastTg < 600) return; lastTg = now; this.toggleFullscreen(); };
+        fullBtn.addEventListener('touchend', tg, { passive: false }); fullBtn.addEventListener('click', tg);
       }
       // Floating virtual stick: the first touch anywhere on the canvas drops a
       // semi-transparent stick at that point; dragging from it steers the ship.
@@ -165,9 +171,11 @@
       // compact, left-anchored meter that stays fully clear of them.
       const touch = this.isTouch;
       const SHORT = { SPEED: 'SPD', MISSILE: 'MSL', DOUBLE: 'DBL', SPREAD: 'SPR', LASER: 'LSR', OPTION: 'OPT', SHIELD: 'SHD' };
-      const bw = touch ? 56 : 96, bh = touch ? 20 : 26, gap = touch ? 4 : 6;
-      const total = slots.length * (bw + gap) - gap;
-      const x0 = touch ? 10 : (W - total) / 2;
+      const bh = touch ? 20 : 26, gap = touch ? 4 : 6;
+      // On touch, span 80% of the width and centre it; on desktop, natural width.
+      const total = touch ? W * 0.8 : slots.length * (96 + gap) - gap;
+      const bw = (total - gap * (slots.length - 1)) / slots.length;
+      const x0 = (W - total) / 2;
       const y0 = H - bh - 10;
       ctx.font = 'bold ' + (touch ? 11 : 12) + 'px Orbitron, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < slots.length; i++) {

@@ -148,7 +148,7 @@
       // respawn handling
       if (!this.player.alive) {
         this.respawnT -= dt;
-        FX.update(dt); Bullets.update(dt); this._updateActors(dt);
+        FX.update(dt); Bullets.update(dt, this.terrain); this._updateActors(dt);
         if (this.respawnT <= 0) {
           if (this.lives < 0) { this.state = 'gameover'; this.banners.length = 0; Audio.stopBGM(); Audio.sfx('death'); }
           else { this.player.reset(false); this.player.alive = true; this.player.inv = 2.2; this.lastHazard = null; }
@@ -168,7 +168,7 @@
       if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.resetCombo(); }
       this.player.update(dt, this);
       this._updateActors(dt);
-      Bullets.update(dt);
+      Bullets.update(dt, this.terrain);
       FX.update(dt);
       this._collisions(dt);
     },
