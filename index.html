@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#04060f" />
+<!-- Discourage caching of the HTML itself so mobile always picks up new deploys. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>ASTRAL VANGUARD — Iron Requiem</title>
 <link rel="icon" type="image/png" href="assets/capsule.png" />
 <link rel="stylesheet" href="css/style.css?v=__BUILD__" />
@@ -32,5 +36,16 @@
   <script src="js/stages.js?v=__BUILD__"></script>
   <script src="js/ui.js?v=__BUILD__"></script>
   <script src="js/main.js?v=__BUILD__"></script>
+
+  <!-- Network-first service worker (HTTPS/production only) keeps mobile on the
+       latest build; updateViaCache:'none' makes the SW script itself bypass the
+       HTTP cache so new releases are detected promptly. -->
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
