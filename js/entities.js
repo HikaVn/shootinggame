@@ -245,9 +245,11 @@
     // fixed radius.
     _updateOptions(dt) {
       if (!this.options.length) return;
+      // Spacing widens with speed: from ~30px up to ~3 ship-widths at max speed.
+      const spread = U.lerp(30, this.w * 3, U.clamp(this.speedLvl / 4, 0, 1));
       if (this.orbit) {
         this.orbitA += dt * 2.4;
-        const R = 46, n = this.options.length;
+        const R = spread, n = this.options.length;
         this.options.forEach((o, i) => {
           const a = this.orbitA + i * U.TAU / n;
           o.x = this.x + Math.cos(a) * R; o.y = this.y + Math.sin(a) * R;
@@ -258,7 +260,7 @@
       // ship's recent path. They follow the exact route with a lag and — because
       // spacing is measured in path distance, not time — they hold their place
       // when the ship is idle instead of sliding back onto it.
-      const GAP = 30, tr = this.trail;
+      const GAP = spread, tr = this.trail;
       const head = tr[tr.length - 1];
       if (Math.hypot(this.x - head[0], this.y - head[1]) > 3) tr.push([this.x, this.y]);
       const need = GAP * this.options.length + 40;
