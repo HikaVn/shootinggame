@@ -24,7 +24,7 @@
       return this.eAdd(Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 5, dmg: 1, col: '#ff5a5a', kind: 'eball' }, opt || {}));
     },
 
-    update(dt) {
+    update(dt, terrain) {
       for (const arr of [this.player, this.enemy]) {
         for (let i = arr.length - 1; i >= 0; i--) {
           const b = arr[i]; b.life -= dt;
@@ -36,13 +36,39 @@
             const na = ca + U.clamp(da, -3 * dt, 3 * dt);
             b.vx = Math.cos(na) * spd; b.vy = Math.sin(na) * spd;
           }
-          if (b.missile) { // missile: drop then run along ground
-            if (b.y < GROUND - 4 && b.phase === 0) { b.vy += 700 * dt; }
-            else { b.phase = 1; b.y = Math.min(b.y, GROUND - 4); b.vy = 0; b.vx = 520; FX.fire(b.x, b.y, 1, -1); FX.smoke(b.x, b.y, 1); }
-          }
+          if (b.missile) this._missile(b, dt, terrain);
           b.x += b.vx * dt; b.y += b.vy * dt;
           if (b.x < -40 || b.x > W + 40 || b.y < -40 || b.y > H + 40 || b.life <= 0) arr.splice(i, 1);
         }
+      }
+    },
+
+    // Missiles drop to (or rise toward) the terrain surface, then hug it as it
+    // scrolls. A slope of 45° or steeper rising into the missile's path is an
+    // impassable wall — the missile detonates on it.
+    _missile(b, dt, terrain) {
+      const ceiling = b.ceiling;
+      const surfAt = (x) => {
+        if (terrain && terrain.active) return terrain.surfaceY(x, ceiling);
+        return ceiling ? 4 : GROUND - 4;
+      };
+      if (b.phase === 0) {                       // launch arc toward the surface
+        b.vy += (ceiling ? -700 : 700) * dt;
+        const surf = surfAt(b.x);
+        if (ceiling ? b.y <= surf + 4 : b.y >= surf - 4) {
+          b.phase = 1; b.vy = 0; b.vx = 520; b.y = surf + (ceiling ? 4 : -4);
+          FX.fire(b.x, b.y, 1, ceiling ? 1 : -1); FX.smoke(b.x, b.y, 1);
+        }
+        return;
+      }
+      // phase 1 — ride the surface
+      const look = 16;                            // tan(45°) * look == look → 45° threshold
+      const cur = surfAt(b.x), nxt = surfAt(b.x + look);
+      const rise = ceiling ? (nxt - cur) : (cur - nxt);   // >0 = wall climbing into the path
+      if (rise >= look) {                         // ≥ 45° slope: collide and detonate
+        FX.explosion(b.x, b.y, 0.7); Audio.sfx('hit'); b.life = 0;
+      } else {
+        b.y = cur + (ceiling ? 4 : -4); b.vy = 0;
       }
     },
 
@@ -186,7 +212,9 @@
       if (AV.Input.fire && this.fireT <= 0) this.fire(game);
       if (this.hasMissile && AV.Input.fire && this.missileT <= 0) {
         this.missileT = 0.6;
-        Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0 });
+        // two-stage missiles: one hugs the floor, one hugs the ceiling
+        Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false });
+        Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true });
         Audio.sfx('missile');
       }
     }
@@ -325,7 +353,34 @@
         case 'turret': this.y = this.y0 + Math.sin(this.idle) * 1.5; break;
         case 'dropper': this.x += this.vx * dt; this.y = this.y0 + Math.sin(this.t * 1.5) * 10; break;
         case 'mine': this.x += this.vx * dt; this.y += Math.sin(this.t * 4) * 20 * dt; break;
-        case 'crawler': this.x += this.vx * dt; this.y = this.y0 + Math.sin(this.t * 10) * 1.2; break; // tread along the surface
+        case 'crawler': { // tread along the terrain surface, tilting with the slope
+          this.x += this.vx * dt;
+          const terr = game.terrain;
+          if (terr && terr.active) {
+            const sy = terr.surfaceY(this.x, this.ceiling);
+            this.y = (this.ceiling ? sy + this.h / 2 : sy - this.h / 2) + Math.sin(this.t * 10) * 1.2;
+            const d = 14;
+            this.tilt = U.clamp(Math.atan2(terr.surfaceY(this.x + d, this.ceiling) - terr.surfaceY(this.x - d, this.ceiling), 2 * d), -0.9, 0.9);
+          } else {
+            this.y = (this.ceiling ? this.h / 2 + 6 : GROUND - this.h / 2) + Math.sin(this.t * 10) * 1.2;
+            this.tilt = 0;
+          }
+          break;
+        }
+      }
+
+      // Floating enemies steer to stay inside the lethal-terrain corridor
+      // (crawlers ride it, turrets are ground-mounted, debris falls through).
+      if (!this.crawl && !this.ground && this.type !== 'debris' && game.terrain && game.terrain.active) {
+        const m = this.h / 2 + 12, lead = Math.max(0, -this.vx) * 0.25 + 14;  // look a touch ahead of travel
+        const top = game.terrain.surfaceY(this.x - lead, true) + m;
+        const bot = game.terrain.surfaceY(this.x - lead, false) - m;
+        const ty = bot < top ? (top + bot) / 2 : U.clamp(this.y, top, bot);
+        if (ty !== this.y) this.y = U.approach(this.y, ty, 700 * dt);
+        // hard safety: the body can never overlap the lethal surface here & now
+        const cs = game.terrain.surfaceY(this.x, true) + this.h / 2;
+        const fs = game.terrain.surfaceY(this.x, false) - this.h / 2;
+        this.y = fs < cs ? (cs + fs) / 2 : U.clamp(this.y, cs, fs);
       }
 
       // shooting
@@ -353,6 +408,7 @@
       const spr = Art.get(this.sprite); if (!spr) return;
       const bob = (this.type === 'turret' || this.type === 'crawler') ? 0 : Math.sin(this.idle * 2) * 1.5;
       ctx.save(); ctx.translate(this.x, this.y + bob);
+      if (this.tilt) ctx.rotate(this.tilt); // follow the terrain slope
       if (this.ceiling) ctx.scale(1, -1); // ceiling crawler hangs inverted
       ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       if (this.hitFlash > 0) {
