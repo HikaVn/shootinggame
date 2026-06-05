@@ -7,6 +7,9 @@
 
   const W = AV.W = 960, H = AV.H = 540;
   const GROUND = H - 8;
+  // Missile durability budget (units = vertical px it can climb). Tuned so a
+  // sustained 60° climb (rise = run·tan60°) carries it ~1/4 of the screen wide.
+  const MISSILE_DUR = (W / 4) * Math.tan(60 * Math.PI / 180);
 
   // Difficulty scaling for hard-mode loops: enemy/bullet speed and spawn counts.
   AV.diff = AV.diff || { speed: 1, count: 1 };
@@ -47,8 +50,10 @@
     },
 
     // Missiles drop to (or rise toward) the terrain surface, then hug it as it
-    // scrolls. A slope of 45° or steeper rising into the missile's path is an
-    // impassable wall — the missile detonates on it.
+    // scrolls. Climbing a slope drains the missile's durability in proportion to
+    // the vertical distance it has to climb (steeper = faster drain, no hard
+    // cutoff); descending/flat costs nothing. When durability runs out it
+    // detonates. DUR_BASE is tuned so a 60° climb lasts ~1/4 of the screen.
     _missile(b, dt, terrain) {
       const ceiling = b.ceiling;
       const surfAt = (x) => {
@@ -64,15 +69,16 @@
         }
         return;
       }
-      // phase 1 — ride the surface
-      const look = 16;                            // tan(45°) * look == look → 45° threshold
-      const cur = surfAt(b.x), nxt = surfAt(b.x + look);
-      const rise = ceiling ? (nxt - cur) : (cur - nxt);   // >0 = wall climbing into the path
-      if (rise >= look) {                         // ≥ 45° slope: collide and detonate
-        FX.explosion(b.x, b.y, 0.7); Audio.sfx('hit'); b.life = 0;
-      } else {
-        b.y = cur + (ceiling ? 4 : -4); b.vy = 0;
+      // phase 1 — ride the surface, spending durability on every upward climb
+      const dx = Math.abs(b.vx) * dt;
+      const cur = surfAt(b.x), ahead = surfAt(b.x + Math.sign(b.vx) * dx);
+      const climb = ceiling ? (ahead - cur) : (cur - ahead);   // >0 = surface rising into the path
+      if (climb > 0) {
+        b.dur -= climb;
+        if (climb > dx * 0.4) FX.fire(b.x, b.y, 1, ceiling ? 1 : -1);   // sparks on steeper climbs
       }
+      b.y = cur + (ceiling ? 4 : -4); b.vy = 0;
+      if (b.dur <= 0) { FX.explosion(b.x, b.y, 0.7); Audio.sfx('hit'); b.life = 0; }
     },
 
     draw(ctx) {
@@ -153,7 +159,7 @@
       // do nothing AND keep the selection (don't consume the power).
       const available = (
         slot === 'SPEED' ? this.speedLvl < 4 :
-        slot === 'MISSILE' ? this.missileLvl < 2 :
+        slot === 'MISSILE' ? this.missileLvl < 3 :
         slot === 'DOUBLE' ? this.weapon !== 'double' :
         slot === 'SPREAD' ? this.weapon !== 'spread' :
         slot === 'LASER' ? this.weapon !== 'laser' :
@@ -214,8 +220,9 @@
       // ceiling-hugging one.
       if (this.missileLvl > 0 && AV.Input.fire && this.missileT <= 0) {
         this.missileT = 0.6;
-        Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false });
-        if (this.missileLvl >= 2) Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true });
+        const dur = MISSILE_DUR * (this.missileLvl >= 3 ? 2 : 1);   // lvl 3 doubles durability
+        Bullets.pAdd({ x: this.x, y: this.y + 6, vx: 120, vy: 60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: false, dur });
+        if (this.missileLvl >= 2) Bullets.pAdd({ x: this.x, y: this.y - 6, vx: 120, vy: -60, r: 4, dmg: 2, missile: true, phase: 0, ceiling: true, dur });
         Audio.sfx('missile');
       }
     }

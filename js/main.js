@@ -285,7 +285,7 @@
     gotoStage(n) { this.player = this.player || new AV.Player(); this.startStage(U.clamp(n, 0, this.stages.length - 1)); },
     warpToBoss() { if (this.state !== 'play') return; this.enemies.length = 0; this.pressers.length = 0; this.clock = 9999; this.evIdx = 1e9; this.startBoss(); },
     toggleGod() { this.god = !this.god; this.banner('GOD ' + (this.god ? 'ON' : 'OFF'), '#7ef', 1.2); return this.god; },
-    maxPower() { const p = this.player; p.speedLvl = 3; p.missileLvl = 2; p.weapon = 'laser'; p.options = [{}, {}]; p.shield = 16; p.shieldMax = 16; },
+    maxPower() { const p = this.player; p.speedLvl = 3; p.missileLvl = 3; p.weapon = 'laser'; p.options = [{}, {}]; p.shield = 16; p.shieldMax = 16; },
   };
 
   global.addEventListener('DOMContentLoaded', () => Game.init());
