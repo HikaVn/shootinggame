@@ -120,7 +120,8 @@ if (fs.existsSync(MANIFEST)) {
   manifest.bgmSources = bgmSources;
   manifest.bgmSource = ALL_TARGETS.every((target) => bgmSources[target] === 'suno') ? 'suno' : 'mixed';
   manifest.sunoImportedAt = new Date().toISOString();
-  manifest.sunoImportSource = srcDir;
+  // Intentionally do NOT record the absolute import path — it would leak a local
+  // username/directory into this public repo's manifest.
   manifest.note = 'BGM files imported from Suno downloads with tools/import_suno_bgm.mjs. Stage BGM shorter than 3 minutes is loop-extended to 185 seconds during import. SFX files are locally synthesized unless replaced separately.';
   fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2));
 }
