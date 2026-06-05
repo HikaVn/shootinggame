@@ -31,7 +31,7 @@ jobs:
       # Cache-busting: stamp a unique build id into the asset query strings so
       # browsers always fetch the freshly deployed JS/CSS instead of a cached copy.
       - name: Stamp build version
-        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" index.html
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" index.html sw.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
