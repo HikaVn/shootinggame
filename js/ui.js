@@ -25,10 +25,17 @@
       const I = AV.Input; let moveId = null;
       const fireBtn = document.getElementById('btnFire'); const powBtn = document.getElementById('btnPower');
       if (fireBtn) {
-        const fd = (e) => { e.preventDefault(); I.fire = true; fireBtn.classList.add('pressed'); AV.Audio.resume(); };
-        const fu = (e) => { e.preventDefault(); I.fire = false; fireBtn.classList.remove('pressed'); };
-        fireBtn.addEventListener('touchstart', fd); fireBtn.addEventListener('touchend', fu); fireBtn.addEventListener('touchcancel', fu);
-        fireBtn.addEventListener('mousedown', fd); fireBtn.addEventListener('mouseup', fu);
+        // FIRE is an auto-fire TOGGLE: tap to switch continuous fire on/off. The
+        // outline blinks while auto-fire is on. Debounced so the touchstart +
+        // synthesized mousedown of one tap doesn't toggle twice.
+        let lastTg = 0;
+        const toggle = (e) => {
+          e.preventDefault(); const now = Date.now(); if (now - lastTg < 300) return; lastTg = now;
+          I.auto = !I.auto; fireBtn.classList.toggle('pressed', I.auto);
+          I._startTouch = true;                 // also advances title / continue screens
+          AV.Audio.resume();
+        };
+        fireBtn.addEventListener('touchstart', toggle); fireBtn.addEventListener('mousedown', toggle);
       }
       if (powBtn) {
         // a tap: pulse the outline briefly so the press is acknowledged
@@ -242,8 +249,8 @@
 
       ctx.font = '14px Orbitron, monospace'; ctx.fillStyle = '#9fd';
       const ctrls = this.isTouch
-        ? ['TOUCH & DRAG anywhere — virtual stick', 'FIRE  shoot', 'POWER  activate capsule upgrade']
-        : ['ARROWS / WASD  move', 'Z / SPACE  fire', 'X / SHIFT  activate power-up', 'ESC  pause'];
+        ? ['TOUCH & DRAG anywhere — virtual stick', 'FIRE  toggle auto-fire', 'POWER  activate capsule upgrade']
+        : ['ARROWS / WASD  move', 'Z / SPACE  fire (hold)', 'X / SHIFT  activate power-up', 'ESC  pause'];
       ctrls.forEach((c, i) => ctx.fillText(c, W / 2, 388 + i * 22));
 
       ctx.fillStyle = '#567'; ctx.font = '12px monospace';
