@@ -178,6 +178,8 @@
       let i = Math.floor(fx); const frac = fx - i; i = U.clamp(i, 0, this.n - 2);
       return { ceil: U.lerp(this.ceil[i], this.ceil[i + 1], frac), floor: U.lerp(this.floor[i], this.floor[i + 1], frac) };
     }
+    // Screen-y of the lethal surface at column sx (ceiling edge, or floor edge).
+    surfaceY(sx, ceiling) { const s = this.sample(sx); return ceiling ? s.ceil : H - s.floor; }
     hits(p) {
       if (!this.active) return false;
       const hb = p.hitbox;
