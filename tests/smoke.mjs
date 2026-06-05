@@ -61,6 +61,21 @@ try {
   await shot(page, path.join(SHOTS, '00-title.png'));
   ok(true, 'title rendered');
 
+  // ---- real entry path: FIRE from title -> newGame -> rAF loop keeps running ----
+  // (gotoStage below bypasses newGame, so this guards against newGame breaking the
+  //  loop — e.g. a field shadowing the loop() method.)
+  console.log('\n[1.5] Start via FIRE (newGame + live loop)');
+  const start = await page.evaluate(async () => {
+    AV.Game.toTitle(); AV.Input.fire = true;
+    await new Promise((r) => requestAnimationFrame(r));      // title -> newGame
+    const c0 = AV.Game.clock;
+    await new Promise((r) => setTimeout(r, 600));            // let the rAF loop advance
+    AV.Input.fire = false;
+    return { state: AV.Game.state, loopIsFn: typeof AV.Game.loop === 'function', advanced: AV.Game.clock > c0 };
+  });
+  ok(start.state === 'play' && start.loopIsFn && start.advanced,
+    `game starts & loop runs (state=${start.state}, loop=fn:${start.loopIsFn}, clock advanced:${start.advanced})`);
+
   // ---- stages ----
   for (let s = 0; s < 3; s++) {
     console.log(`\n[2.${s + 1}] Stage ${s + 1}`);
