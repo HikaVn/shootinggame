@@ -8,6 +8,9 @@
   const W = AV.W = 960, H = AV.H = 540;
   const GROUND = H - 8;
 
+  // Difficulty scaling for hard-mode loops: enemy/bullet speed and spawn counts.
+  AV.diff = AV.diff || { speed: 1, count: 1 };
+
   /* ----------------------------------------------------------------- *
    * Bullet manager
    * ----------------------------------------------------------------- */
@@ -16,7 +19,7 @@
     clear() { this.player.length = 0; this.enemy.length = 0; },
 
     pAdd(o) { o.trail = []; o.life = o.life || 3; this.player.push(o); return o; },
-    eAdd(o) { o.trail = []; o.life = o.life || 6; this.enemy.push(o); return o; },
+    eAdd(o) { o.trail = []; o.life = o.life || 6; const m = AV.diff.speed; o.vx = (o.vx || 0) * m; o.vy = (o.vy || 0) * m; this.enemy.push(o); return o; },
 
     // aimed enemy shot
     aim(x, y, tx, ty, spd, opt) {
@@ -344,6 +347,9 @@
       this.type = type; this.x = x; this.y = y; this.t = 0; this.alive = true;
       this.fireT = U.rand(0.5, 1.5); this.idle = U.rand(0, U.TAU); this.hitFlash = 0;
       Object.assign(this, this._defaults(type), opt || {});
+      // Hard-mode loops speed up enemy movement (and below, their shots & approach).
+      this.spdMul = AV.diff.speed;
+      this.vx *= this.spdMul; if (this.vy) this.vy *= this.spdMul;
       // Terrain crawlers lock onto the floor (or ceiling if opt.ceiling) regardless of passed y.
       if (this.crawl) { this.y = this.ceiling ? (this.h / 2 + 6) : (GROUND - this.h / 2); }
       this.maxhp = this.hp; this.y0 = this.y;
@@ -384,7 +390,7 @@
         case 'fighter': this.x += this.vx * dt; this.y += Math.sin(this.t * 2) * 30 * dt; break;
         case 'hunter':
           this.x += this.vx * dt;
-          if (this.x < W - 100 && p.alive) this.y = U.approach(this.y, p.y, 90 * dt);
+          if (this.x < W - 100 && p.alive) this.y = U.approach(this.y, p.y, 90 * this.spdMul * dt);
           this.y += Math.sin(this.t * 5) * 0.6; break;
         case 'turret': this.y = this.y0 + Math.sin(this.idle) * 1.5; break;
         case 'dropper': this.x += this.vx * dt; this.y = this.y0 + Math.sin(this.t * 1.5) * 10; break;
